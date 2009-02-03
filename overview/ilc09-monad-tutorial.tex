@@ -1,0 +1,89 @@
+%-----------------------------------------------------------------------------
+%
+%               Template for LaTeX Class/Style File
+%
+% Name:         sigplanconf-template.tex
+% Purpose:      A template for sigplanconf.cls, which is a LaTeX 2e class
+%               file for SIGPLAN conference proceedings.
+%
+% Author:       Paul C. Anagnostopoulos
+%               Windfall Software
+%               978 371-2316
+%               paul@windfall.com
+%
+% Created:      15 February 2005
+%
+%-----------------------------------------------------------------------------
+
+
+\documentclass[preprint,natbib,10pt]{sigplanconf}
+
+\usepackage{amsmath}
+
+\begin{document}
+
+\conferenceinfo{ILC '09}{March 22--25, 2009, Cambridge, Massachusetts, USA.}
+\copyrightyear{2009}
+\copyrightdata{[to be supplied]}
+
+\titlebanner{DRAFT}        % These are ignored unless
+\preprintfooter{A tutorial on using monads in Clojure and scheme}   % 'preprint' option specified.
+
+\title{Monads for the Working List Programmer}
+% \subtitle{Subtitle Text, if any}
+
+\authorinfo{Ravi Nanavati\and Jeff Newbern}
+           {Bluespec, Inc.}
+           {\{ravi,jnewbern\}@bluespec.com}
+
+\maketitle
+
+\begin{abstract}
+
+Monads are a computational pattern for encapsulating and controlling
+effects.  First employed in pure languages, monad design patterns have
+recently been implemented in impure functional languages.  This
+tutorial introduces monads as implemented in the pure language Haskell
+before describing monad facilities in scheme and Clojure.  An extended
+example of monadic programming in Clojure is developed by building a
+modular language interpreter.
+
+\end{abstract}
+
+\category{D.1.1}{PROGRAMMING TECHNIQUES}{Applicative (Functional) Programming}
+
+\terms
+term1, term2
+
+\keywords
+keyword1, keyword2
+
+\section{Introduction}
+
+\section{Monads in Haskell}
+
+\section{Monads in Scheme}
+
+\section{Monads in Clojure}
+
+\section{A Modular Interpreter}
+
+\appendix
+\section{Appendix Title}
+
+This is the text of the appendix, if you need one.
+
+\acks
+
+Acknowledgments, if needed.
+
+\bibliographystyle{plainnat}
+
+\begin{thebibliography}{}
+
+\bibitem{smith02}
+Smith, P. Q. reference text
+
+\end{thebibliography}
+
+\end{document}
