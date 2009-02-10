@@ -32,65 +32,86 @@
 		       (fn [e] (m-bind (run-with-env e mv)
 				       (fn [x] ((f x) e))))))]))
 
-; arithmetic language fragment
 
-(defstruct expr :tag :val)
-
-(defn literal [n] (struct expr 'literal n))
-(defn plus [x y] (struct expr 'plus [x y]))
-(defn minus [x y] (struct expr 'minus [x y]))
-(defn times [x y] (struct expr 'times [x y]))
-(defn divide [x y] (struct expr 'divide [x y]))
-
-; variable references
-
-(defn variable [ident] (struct expr 'var ident))
+(defn capture-env [e] e)
 
 ; interpreter
 
 (def interp-monad (env-t maybe))
 
+(defn add-to-map [k v]
+  (fn [m] (assoc m k v)))
+
 (defn interp [e]
-  (let [t (:tag e)]
-    (cond
-       (= t 'literal) (domonad interp-monad
-			 []
-			 (:val e))
-       (= t 'plus)    (domonad interp-monad
-			 [x (interp (first (:val e)))
-			  y (interp (second (:val e)))]
-			 (+ x y))
-       (= t 'minus)   (domonad interp-monad
-			 [x (interp (first (:val e)))
-			  y (interp (second (:val e)))]
-			 (- x y))
-       (= t 'times)   (domonad interp-monad
-			 [x (interp (first (:val e)))
-			  y (interp (second (:val e)))]
-			 (* x y))
-       (= t 'divide)  (domonad interp-monad
-			 [x (interp (first (:val e)))
-			  y (interp (second (:val e)))
-			  :when (not (= y 0))]
-			 (/ x y))
-       (= t 'var)     (domonad interp-monad
-			 [v (ask-env (:val e))
-			  r (interp v)]
-                         r)
-       )))
+  (cond
+   (symbol? e) (domonad interp-monad
+		  [v (ask-env e)
+		   r (interp v)]
+		  r)
+   (number? e) (domonad interp-monad [] e)
+   (seq? e)    (let [t    (first e)
+		     args (rest e)]
+		 (cond
+		  (= t '+)        (domonad interp-monad
+				     [x (interp (first args))
+				      y (interp (second args))]
+				     (+ x y))
+		  (= t '-)        (domonad interp-monad
+				     [x (interp (first args))
+				      y (interp (second args))]
+				     (- x y))
+		  (= t '*)        (domonad interp-monad
+				     [x (interp (first args))
+				      y (interp (second args))]
+				     (* x y))
+		  (= t '/)        (domonad interp-monad
+				     [x (interp (first args))
+				      y (interp (second args))
+				      :when (not (and (number? y) (= 0 y)))]
+				     (/ x y))
+		  (= t 'lambda-v) (domonad interp-monad
+				     [ce capture-env]
+				     (fn [arg] (domonad interp-monad
+						  [arg_val (interp arg)]
+						  (run-with-env (assoc ce (first args) arg_val)
+								(interp (second args))))))
+		  (= t 'lambda-n) (domonad interp-monad
+				     [ce capture-env]
+				     (fn [arg] (domonad interp-monad
+						  []
+						  (run-with-env (assoc ce (first args) arg)
+								(interp (second args))))))
+		  (= t 'app)      (domonad interp-monad
+				     [f (interp (first args))
+				      r (f (second args))]
+				     r)
+		  ))
+   ))
 
 ; examples
 
-(def initial-env {"x" (literal 7), "y" (literal 21)})
+(def initial-env {'x 7, 'y 21})
 
+; Success: 17
 (prn (run-with-env initial-env
-		   (interp (plus (literal 3) (times (literal 2) (variable "x"))))))
+		   (interp '(+ 3 (* 2 x)))))
 
+; Error: undefined variable "z"
 (prn (run-with-env initial-env
-		   (interp (plus (literal 4) (variable "z")))))
+		   (interp '(+ 4 z))))
 
+; Success: 4
 (prn (run-with-env initial-env
-		   (interp (divide (literal 12) (literal 3)))))
+		   (interp '(/ 12 3))))
 
+; Error: division by 0
 (prn (run-with-env initial-env
-		   (interp (divide (literal 12) (minus (literal 21) (variable "y"))))))
+		   (interp '(/ 12 (- 21 y)))))
+
+; Success: 203
+(prn (run-with-env initial-env
+		   (interp '(+ x (app (lambda-v x (* x x)) (- y x))))))
+
+; Success: 203
+(prn (run-with-env initial-env
+		   (interp '(+ x (app (lambda-n x (* x x)) (- y x))))))
