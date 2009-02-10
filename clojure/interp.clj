@@ -69,21 +69,26 @@
 				      y (interp (second args))
 				      :when (not (and (number? y) (= 0 y)))]
 				     (/ x y))
+		  (= t 'closure)  (domonad interp-monad
+				     []
+				     (run-with-env (first args) (interp (second args))))
 		  (= t 'lambda-v) (domonad interp-monad
 				     [ce capture-env]
-				     (fn [arg] (domonad interp-monad
-						  [arg_val (interp arg)]
-						  (run-with-env (assoc ce (first args) arg_val)
-								(interp (second args))))))
+				     (fn [arg_cl] (domonad interp-monad
+						     [arg_val (interp arg_cl)
+						      body_cl (m-result (list 'closure (assoc ce (first args) arg_val) (second args)))
+						      r       (interp body_cl)]
+						     r)))
 		  (= t 'lambda-n) (domonad interp-monad
 				     [ce capture-env]
-				     (fn [arg] (domonad interp-monad
-						  []
-						  (run-with-env (assoc ce (first args) arg)
-								(interp (second args))))))
+				     (fn [arg_cl] (domonad interp-monad
+						     [body_cl (m-result (list 'closure (assoc ce (first args) arg_cl) (second args)))
+						      r       (interp body_cl)]
+						     r)))
 		  (= t 'app)      (domonad interp-monad
-				     [f (interp (first args))
-				      r (f (second args))]
+				     [f  (interp (first args))
+				      ce capture-env
+				      r  (f (list 'closure ce (second args)))]
 				     r)
 		  ))
    ))
@@ -107,6 +112,10 @@
 ; Error: division by 0
 (prn (run-with-env initial-env
 		   (interp '(/ 12 (- 21 y)))))
+
+; Success: 9
+(prn (run-with-env initial-env
+		   (interp '(app (lambda-v x (* x x)) 3))))
 
 ; Success: 203
 (prn (run-with-env initial-env
