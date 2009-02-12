@@ -1,0 +1,298 @@
+#LyX 1.6.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize 11
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\cite_engine natbib_authoryear
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Tutorial: Monads for the Working Lisp Programmer
+\end_layout
+
+\begin_layout Author
+Ravi Nanavati and Jeff Newbern
+\end_layout
+
+\begin_layout Section*
+Description
+\end_layout
+
+\begin_layout Standard
+Monads are computational pattern for simulating impure effects in pure languages
+ like Haskell 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "wadlermonads"
+
+\end_inset
+
+.
+ Monads can also be a powerful framework for structuring, encapsulating
+ and controlling computational effects, even in impure languages.
+ Recently, a number of monad implementations have been developed for impure
+ languages 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "clojure-monads,scheme-monads,ocaml-monads"
+
+\end_inset
+
+.The goal of this tutorial is to introduce monadic programming to Lisp programmer
+s and to give them practical examples of how monads can be useful in their
+ day-to-day programming.
+ 
+\end_layout
+
+\begin_layout Standard
+The tutorial will begin by introducing monads in Haskell.
+ An example of explicit state-plumbing will be used to motivate a basic
+ state monad.
+ After the basic monadic framework has been discussed several other monad
+ examples will be presented, with a particular focus on monads that might
+ be most relevant for Lisp programmers, like the list and continuation monads.
+ The discussion of Haskell monads will conclude with the introduction of
+ monad transformers - a framework for organizing computations with several
+ different effects.
+\end_layout
+
+\begin_layout Standard
+After working with Haskell monads, the second half of the tutorial will
+ focus on how monads can be implemented and used by Lisp programmers.
+ Scheme 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "scheme-monads"
+
+\end_inset
+
+and Clojure 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "clojure-monads"
+
+\end_inset
+
+monad implementations will be presented and participants will work with
+ them.
+ Familiarity with Lisp macros will be assumed, as both implementations include
+ syntax extensions to make monad usage more user-friendly.
+ The tutorial will conclude with a discussion of the strengths and weaknesses
+ of the various monad implementations.
+ 
+\end_layout
+
+\begin_layout Section*
+Notes
+\end_layout
+
+\begin_layout Standard
+This tutorial will include a wide variety of hands-on exercises in order
+ to give participants as much practical experience with monadic programming
+ as possible.
+ To be prepared for these exercises students should have the following tools
+ installed:
+\end_layout
+
+\begin_layout Itemize
+Haskell implementation (GHC or Hugs preferred, available at 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://haskell.org/ghc
+\end_layout
+
+\end_inset
+
+ and 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://haskell.org/hugs
+\end_layout
+
+\end_inset
+
+) with the mtl monad transformer library from Hackage (available at 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/mtl
+\end_layout
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Itemize
+Scheme implementation with 
+\family typewriter
+define-macro
+\family default
+ support.
+\end_layout
+
+\begin_layout Itemize
+Clojure (
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://clojure.org
+\end_layout
+
+\end_inset
+
+) and Clojure monad library (
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://clojure.googlegroups.com/web/monads.clj
+\end_layout
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Section*
+Instructors
+\end_layout
+
+\begin_layout Standard
+Ravi Nanavati and Jeff Newbern
+\end_layout
+
+\begin_layout Section*
+Biographies
+\end_layout
+
+\begin_layout Standard
+\noindent
+Ravi Nanavati is the Lead Compiler Architect at Bluespec, Inc.
+ in Waltham, Massachusetts, where he has been professional Haskell programmer
+ for over 5 years.
+ His ICFP Experience Report 
+\begin_inset Quotes eld
+\end_inset
+
+A Pure Shirt Fits - Reflections on Haskell at Bluespec
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "pureshirt"
+
+\end_inset
+
+ focuses on how a pure, monadic programming style has enabled Bluespec to
+ quickly and correctly adapt and re-use complex, imperative computations
+ in response to changing external requirements.
+ He received his M.
+ Eng and S.B.
+ in Computer Science from MIT in 2000.
+ At MIT, he worked with Scheme extensively, including as both a Lab Assistant
+ and Teaching Assistant for 6.001.
+ His M.Eng thesis 
+\begin_inset Quotes eld
+\end_inset
+
+Extensible Syntax in the Presence of Static Analysis
+\begin_inset Quotes erd
+\end_inset
+
+ was about generating user-friendly error-messages when combining a Scheme-style
+ macro system with a Hindley-Milner type system.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace bigskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Jeff Newbern also works at Bluespec, Inc., where he primarily develops simulation
+ and co-emulation technology.
+ He received both an M.Eng and S.B in Computer Science from MIT.
+ He is the author of 
+\begin_inset Quotes eld
+\end_inset
+
+All About Monads
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset CommandInset citation
+LatexCommand citep
+key "all-about-monads"
+
+\end_inset
+
+ one of the most popular and extensive monad tutorials in the Haskell community.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "monad_tutorial"
+options "plainnat"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
