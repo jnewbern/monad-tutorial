@@ -60,6 +60,22 @@
 (defn ask-env-t [m k]
   (domonad (env-t m) [e (capture-env-t m)] (second (find e k))))
 
+; continuation monad transformer
+; in a dynamically typed setting this seems to also be
+; the continuation monad itself
+(defn cont-t
+  "Monad transformer that adds continuations to an existing monad"
+  [m]
+  (monad [m-result (fn m-result-cont-t [v]
+                      (fn [k] (k v)))
+          m-bind   (fn m-bind-cont-t [mv f]
+                     (fn [c] (mv (fn [a] ((f a) c)))))]))
+
+(defn lift-cont-t [m]
+   (fn [mv] (with-monad m (partial m-bind mv))))
+
+(defn callcc [f] (fn [c] (f (fn [a] (fn [_] (c a)))) c))
+
 ; interpreter
 
 (def interp-monad (env-t error))
