@@ -52,15 +52,76 @@ modular language interpreter.
 
 \category{D.1.1}{PROGRAMMING TECHNIQUES}{Applicative (Functional) Programming}
 
-\terms
-term1, term2
+%\terms
+%term1, term2
 
-\keywords
-keyword1, keyword2
+%\keywords
+%keyword1, keyword2
 
 \section{Introduction}
 
+The monad design pattern adds structure to a value so that effects
+associated with computing the value can be modeled.  A wide variety of
+effects can be modeled this way, including things that are not
+normally thought of as effects, such as parser failure or accessing an
+environment of bindings.
+
+For the programmer, monads are useful tools for structuring functional
+programs because they provide modularity, flexibility and isolation.
+Modularity is achieved because monads allow effectful computations to
+be composed from simpler effectful computations.  Programs built using
+monads can be more flexible than non-monadic programs because the
+specification of the strategy for combining effectful computations is
+factored out into a single code fragment that can be easily modified
+or replaced.  Monads make it easier to isolate effectful computations
+and to track and delimit the scope of effects within a program.
+
+There are 3 components to a computational monad:
+
+Some additional structure around a base value which will model the
+effect of the monad.  We represent the type of the base value by
+$t$ and the type of the monadic value which extends the base type
+with a model of the desired effect by writing the name of the effect
+in a subscript, $t_{effect}$.
+
+A function, {\tt result}, of type $t \rightarrow t_{effect}$) which
+takes a value of the base type $t$ and lifts it to a value of the
+monadic type by adding structure corresponding to a pure computation
+with no effect.
+
+A function, {\tt bind}, of type $t_{effect} \rightarrow (t \rightarrow
+t_{effect}) \rightarrow t_{effect}$ which combines a monadic value
+with a function to create a new monadic value and combines the effects
+of the two.  The values of the base type in the result of {\tt bind}
+are computed from the values of the base type in the input value by
+applying the input function.  The effect structure of the result of
+{\tt bind} is the composition of the effect structure of the input
+value with the effect structure of the result of the function
+application.
+
+Since the {\tt bind} function composes existing effect structures into
+its result effect structure and the {\tt result} function lifts a
+value purely -- that is without adding an effect -- any useful
+non-identity monad will be augmented with additional functions which
+create monadic values with effects.  Unlike {\tt return} and
+{\tt bind}, the names and types of these functions are not standardized
+and will vary between different monads.
+
+<<< monad laws>>>
+
 \section{Monads in Haskell}
+
+In the pure, non-strict, statically-typed functional language Haskell
+monads are pervasive.  Impure features such as I/O and mutable state
+are built on a monadic framework and monads are used to model failure,
+nondeterminism, partiality, and numerous other effects.
+
+In Haskell a monad is represented by a constructor for the type of
+monadic values given the type of the base value, a {\tt result}
+function for lifting values of the base type to the monadic type, and
+a binding combinator, {\tt >>=}, for composing a value of the monadic
+type with a function to create a new value of the monadic type,
+combining the effects of the input value and the function.
 
 \section{Monads in Scheme}
 
@@ -68,14 +129,14 @@ keyword1, keyword2
 
 \section{A Modular Interpreter}
 
-\appendix
-\section{Appendix Title}
+%\appendix
+%\section{Appendix Title}
 
-This is the text of the appendix, if you need one.
+%This is the text of the appendix, if you need one.
 
-\acks
+%\acks
 
-Acknowledgments, if needed.
+%Acknowledgments, if needed.
 
 \bibliographystyle{plainnat}
 
