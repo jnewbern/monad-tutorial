@@ -90,16 +90,26 @@
 
 (defn report-error [desc] (lift-error (fail desc)))
 
-(defn add-to-env [e k v]
-  (with-monad error (assoc e k (m-result v))))
+(defn add-to-env [e k v] (assoc e k v))
+
+(defn interp-lookup [k] (lift-env (ask-env-t error k)))
+
+(def interp-capture-env (lift-env (capture-env-t error)))
+
+(defn interp-local-env [f mv]
+   (fn [c]
+     (domonad (env-t error)
+        [e (capture-env-t error)
+         r (local-env f (mv (fn [x] (local-env (fn [_] e) (c x)))))]
+         r)))
 
 (defn interp [e]
   ; (prn "interp: " e)
   (cond
    (symbol? e) (domonad interp-monad
-		  [v (ask-env-t error e)
+		  [v (interp-lookup e)
 		   r (if v
-		         (m-bind (with-monad env (m-result v)) interp)
+		         (interp v)
 			 (report-error (str "undefined variable " e)))]
 		  r)
    (number? e) (domonad interp-monad [] e)
