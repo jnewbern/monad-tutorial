@@ -86,10 +86,9 @@
 
 ; interpreter
 
-(def interp-monad (env-t error))
+(def interp-monad (cont-t (env-t error)))
 
-(defn report-error [desc]
-  (with-monad env (m-result (fail desc))))
+(defn report-error [desc] (lift-error (fail desc)))
 
 (defn add-to-env [e k v]
   (with-monad error (assoc e k (m-result v))))
