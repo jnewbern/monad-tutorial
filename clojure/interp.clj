@@ -80,6 +80,8 @@
 
 (defn callcc [f] (fn [c] ((f (fn [a] (fn [_] (c a)))) c)))
 
+;
+
 (def lift-env (lift-cont-t (env-t error)))
 
 (defn lift-error [mv] (lift-env (lift-env-t mv)))
@@ -233,3 +235,23 @@
 
 ; success 3
 (run-interp '(callcc exit (+ 5 (exit 3))))
+
+; success 14
+(run-interp '(+ (callcc exit (+ 7 (exit 9)))
+                (+ 2 (callcc exit (- 2 (exit 3))))))
+
+; success 25
+(run-interp '(* (callcc exit (/ (exit 5) 0))
+               5))
+
+; success 10
+(run-interp '((callcc exit-fn (lambda-v n (* n 2))) 5))
+
+; continuation escaping callcc
+; success 30
+(run-interp '((callcc exit-fn
+                (lambda-v n
+                   (+ n
+                     (exit-fn (lambda-v r (* n (+ r 1))))))) 5))
+
+
