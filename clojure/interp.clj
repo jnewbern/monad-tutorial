@@ -162,32 +162,47 @@
 
 ; examples
 
-(def initial-env (with-monad error {'x (m-result 7), 'y (m-result 21)}))
+(def initial-env {'x 7, 'y 21})
 
-; Success: 17
-(prn (run-with-env initial-env
-		   (interp '(+ 3 (* 2 x)))))
+; the interpreter continuation needs to handle the underlying monads
+(def interp-cont (with-monad (env-t error) m-result))
 
-; Error: undefined variable: z
-(prn (run-with-env initial-env
-		   (interp '(+ 4 z))))
+(defn run-interp [exp]
+      (prn 'run-interp exp)
+      (prn (run-with-env initial-env ((interp exp) interp-cont))))
 
-; Success: 4
-(prn (run-with-env initial-env
-		   (interp '(/ 12 3))))
+;fail: undefined variable: z
+(run-interp 'z)
 
-; Error: division by 0
-(prn (run-with-env initial-env
-		   (interp '(/ 12 (- 21 y)))))
+; success: 3
+(run-interp 3)
 
-; Success: 9
-(prn (run-with-env initial-env
-		   (interp '(app (lambda-v x (* x x)) 3))))
+; success: 7
+(run-interp 'x)
 
-; Success: 203
-(prn (run-with-env initial-env
-		   (interp '(+ x (app (lambda-v x (* x x)) (- y x))))))
+; success: 17
+(run-interp '(+ 3 (* 2 x)))
 
-; Success: 203
-(prn (run-with-env initial-env
-		   (interp '(+ x (app (lambda-n x (* x x)) (- y x))))))
+;fail: undefined variable: z
+(run-interp '(+ 4 z))
+
+; success 4
+(run-interp '(/ 12 3))
+
+; fail - division-by 0
+(run-interp '(/ 12 (- 21 y)))
+
+; success: 9
+(run-interp  '(app (lambda-v x (* x x)) 3))
+
+; success: 203
+(run-interp  '(+ x (app (lambda-v x (* x x)) (- y x))))
+
+; success: 203
+(run-interp  '(+ x (app (lambda-n x (* x x)) (- y x))))
+
+; fail - division by 0
+(run-interp '(app (lambda-v x 5) (/ 5 0)))
+
+; success 5
+(run-interp '(app (lambda-n x 5) (/ 5 0)))
