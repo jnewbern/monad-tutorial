@@ -78,7 +78,7 @@
 (defn lift-cont-t [m]
    (fn [mv] (with-monad m (partial m-bind mv))))
 
-(defn callcc [f] (fn [c] (f (fn [a] (fn [_] (c a)))) c))
+(defn callcc [f] (fn [c] ((f (fn [a] (fn [_] (c a)))) c)))
 
 (def lift-env (lift-cont-t (env-t error)))
 
@@ -125,6 +125,7 @@
 		  r)
    (number? e) (domonad interp-monad [] e)
    (closure? e) (interp-closure e interp)
+   (fn? e) (domonad interp-monad [] e)
    (seq? e)    (let [t    (first e)
 		     args (rest e)]
 		 (cond
@@ -161,6 +162,20 @@
                                        (let [new-env (add-to-env ce (first args) arg_cl)
                                              body_cl (make-closure new-env (second args))]
                                             (interp body_cl))))
+                  (= t 'callcc) (domonad interp-monad
+                                  [ce interp-capture-env
+                                   r (callcc
+                                       (fn [cont]
+                                         (let [new-cont
+                                                (fn [arg]
+						  (domonad interp-monad
+                                                      [v (interp arg)
+                                                       r (cont v)]
+                                                      r))
+                                               new-env (add-to-env ce (first args) new-cont)
+                                               body_cl (make-closure new-env (second args))]
+                                              (interp body_cl))))]
+                                   r)
 		  :default (domonad interp-monad
                              [f (interp (first e))
                               ce interp-capture-env
@@ -215,3 +230,6 @@
 
 ; success 5
 (run-interp '((lambda-n x 5) (/ 5 0)))
+
+; success 3
+(run-interp '(callcc exit (+ 5 (exit 3))))
