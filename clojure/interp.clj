@@ -103,6 +103,17 @@
          r (local-env f (mv (fn [x] (local-env (fn [_] e) (c x)))))]
          r)))
 
+; closures
+(defstruct closure :env :body)
+
+(defn make-closure [env body] (struct closure env body))
+
+(defn closure? [c] (and (map? c) (get c :env) (get c :body)))
+
+; interp is a hack to fake top-level recursion
+(defn interp-closure [c interp]
+  (interp-local-env (fn [_] (get c :env)) (interp (get c :body))))
+
 (defn interp [e]
   ; (prn "interp: " e)
   (cond
@@ -113,6 +124,7 @@
 			 (report-error (str "undefined variable " e)))]
 		  r)
    (number? e) (domonad interp-monad [] e)
+   (closure? e) (interp-closure e interp)
    (seq? e)    (let [t    (first e)
 		     args (rest e)]
 		 (cond
@@ -135,27 +147,24 @@
 					    (m-result (/ x y))
 					    (report-error "division by 0"))]
 				     r)
-		  (= t 'closure)  (interp-local-env
-                                     (fn [_] (first args))
-                                     (interp (second args)))
 		  (= t 'lambda-v) (domonad interp-monad
 				     [ce interp-capture-env]
 				     (fn [arg_cl] (domonad interp-monad
 						     [arg_val (interp arg_cl)
-						      body_cl (m-result (list 'closure (add-to-env ce (first args) arg_val) (second args)))
+                                                      new_env (m-result (add-to-env ce (first args) arg_val))
+						      body_cl (m-result (make-closure new_env (second args)))
 						      r       (interp body_cl)]
 						     r)))
 		  (= t 'lambda-n) (domonad interp-monad
 				     [ce interp-capture-env]
-				     (fn [arg_cl] (domonad interp-monad
-						     [body_cl (m-result (list 'closure (add-to-env ce (first args) arg_cl) (second args)))
-                                                      ;z (m-result (prn "body_cl: " body_cl))
-						      r       (interp body_cl)]
-						     r)))
+				     (fn [arg_cl]
+                                       (let [new-env (add-to-env ce (first args) arg_cl)
+                                             body_cl (make-closure new-env (second args))]
+                                            (interp body_cl))))
 		  (= t 'app)      (domonad interp-monad
 				     [f  (interp (first args))
 				      ce interp-capture-env
-				      r  (f (list 'closure ce (second args)))]
+				      r  (f (make-closure ce (second args)))]
 				     r)
 		  ))
    ))
