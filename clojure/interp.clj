@@ -80,6 +80,10 @@
 
 (defn callcc [f] (fn [c] (f (fn [a] (fn [_] (c a)))) c))
 
+(def lift-env (lift-cont-t (env-t error)))
+
+(defn lift-error [mv] (lift-env (lift-env-t mv)))
+
 ; interpreter
 
 (def interp-monad (env-t error))
