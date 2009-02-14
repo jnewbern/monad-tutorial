@@ -1,6 +1,8 @@
 (ns monad-tutorial
   (:use clojure.contrib.monads))
 
+(defn trace [s x] (do (prn s x) x))
+
 ; error monad
 
 (defmonad error
