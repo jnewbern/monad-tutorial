@@ -161,11 +161,11 @@
                                        (let [new-env (add-to-env ce (first args) arg_cl)
                                              body_cl (make-closure new-env (second args))]
                                             (interp body_cl))))
-		  (= t 'app)      (domonad interp-monad
-				     [f  (interp (first args))
-				      ce interp-capture-env
-				      r  (f (make-closure ce (second args)))]
-				     r)
+		  :default (domonad interp-monad
+                             [f (interp (first e))
+                              ce interp-capture-env
+                              r (f (make-closure ce (second e)))]
+                             r)
 		  ))
    ))
 
@@ -202,16 +202,16 @@
 (run-interp '(/ 12 (- 21 y)))
 
 ; success: 9
-(run-interp  '(app (lambda-v x (* x x)) 3))
+(run-interp  '((lambda-v x (* x x)) 3))
 
 ; success: 203
-(run-interp  '(+ x (app (lambda-v x (* x x)) (- y x))))
+(run-interp  '(+ x ((lambda-v x (* x x)) (- y x))))
 
 ; success: 203
-(run-interp  '(+ x (app (lambda-n x (* x x)) (- y x))))
+(run-interp  '(+ x ((lambda-n x (* x x)) (- y x))))
 
 ; fail - division by 0
-(run-interp '(app (lambda-v x 5) (/ 5 0)))
+(run-interp '((lambda-v x 5) (/ 5 0)))
 
 ; success 5
-(run-interp '(app (lambda-n x 5) (/ 5 0)))
+(run-interp '((lambda-n x 5) (/ 5 0)))
