@@ -135,25 +135,26 @@
 					    (m-result (/ x y))
 					    (report-error "division by 0"))]
 				     r)
-		  (= t 'closure)  (domonad interp-monad
-				     [r (local-env (fn [_] (first args)) (interp (second args)))]
-				     r)
+		  (= t 'closure)  (interp-local-env
+                                     (fn [_] (first args))
+                                     (interp (second args)))
 		  (= t 'lambda-v) (domonad interp-monad
-				     [ce (capture-env-t error)]
+				     [ce interp-capture-env]
 				     (fn [arg_cl] (domonad interp-monad
 						     [arg_val (interp arg_cl)
 						      body_cl (m-result (list 'closure (add-to-env ce (first args) arg_val) (second args)))
 						      r       (interp body_cl)]
 						     r)))
 		  (= t 'lambda-n) (domonad interp-monad
-				     [ce (capture-env-t error)]
+				     [ce interp-capture-env]
 				     (fn [arg_cl] (domonad interp-monad
 						     [body_cl (m-result (list 'closure (add-to-env ce (first args) arg_cl) (second args)))
+                                                      ;z (m-result (prn "body_cl: " body_cl))
 						      r       (interp body_cl)]
 						     r)))
 		  (= t 'app)      (domonad interp-monad
 				     [f  (interp (first args))
-				      ce (capture-env-t error)
+				      ce interp-capture-env
 				      r  (f (list 'closure ce (second args)))]
 				     r)
 		  ))
