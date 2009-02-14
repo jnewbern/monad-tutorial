@@ -94,6 +94,7 @@
   (with-monad error (assoc e k (m-result v))))
 
 (defn interp [e]
+  ; (prn "interp: " e)
   (cond
    (symbol? e) (domonad interp-monad
 		  [v (ask-env-t error e)
