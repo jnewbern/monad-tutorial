@@ -80,6 +80,10 @@
 
 (defn callcc [f] (fn [c] ((f (fn [a] (fn [_] (c a)))) c)))
 
+; eval-cont-t unwraps a continuation value by providing
+; a default continuation (the lower-level m-result)
+(defn eval-cont-t [m mv] (with-monad m (mv m-result)))
+
 ;
 
 (def lift-env (lift-cont-t (env-t error)))
@@ -195,12 +199,10 @@
 
 (def initial-env {'x 7, 'y 21})
 
-; the interpreter continuation needs to handle the underlying monads
-(def interp-cont (with-monad (env-t error) m-result))
-
 (defn run-interp [exp]
       (prn 'run-interp exp)
-      (prn (run-with-env initial-env ((interp exp) interp-cont))))
+      (prn (run-with-env initial-env
+             (eval-cont-t (env-t error) (interp exp)))))
 
 ;fail: undefined variable: z
 (run-interp 'z)
