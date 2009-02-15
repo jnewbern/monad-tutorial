@@ -380,3 +380,15 @@
                 tick
                 ((lambda-v t0 (exit t0)) time)))
            time)))
+
+
+; demonstrate alt-callcc preserves the state
+; success 6 (not 4)
+(run-interp
+  '(do tick
+       (+ (alt-callcc exit
+            (do tick
+                tick
+                ((lambda-v t0 (exit t0)) time)))
+           time)))
+
