@@ -131,6 +131,22 @@
 
 (def interp-capture-env (lift-env (capture-env-t error)))
 
+(def interp-get-state (get-state-t (cont-t (env-t error))))
+
+(def interp-put-state (put-state-t (cont-t (env-t error))))
+
+(defstruct interp-state :time)
+
+(def interp-get-time
+  (domonad interp-monad [s interp-get-state] (get s :time)))
+
+(def interp-inc-time
+  (domonad interp-monad [s interp-get-state
+                         _ (interp-put-state
+                             (let [new-time (+ 1 (get s :time))]
+                               (assoc s :time new-time)))]
+                        nil))
+
 ; rebuild local-env around a continuation monad transformer
 (defn cont-local-env [m local-env-m capture-env-m]
    (fn [f mv]
@@ -169,6 +185,8 @@
 (defn interp [e]
   ; (prn "interp: " e)
   (cond
+   (= e 'tick) interp-inc-time
+   (= e 'time) interp-get-time
    (symbol? e) (domonad interp-monad
 		  [v (interp-lookup e)
 		   r (if v
@@ -246,7 +264,7 @@
 
 (def initial-env {'x 7, 'y 21})
 
-(def initial-state "initial state")
+(def initial-state (struct interp-state 0))
 
 (def run-interp-state (eval-state-t (cont-t (env-t error))))
 
