@@ -110,7 +110,7 @@
 
 (defn eval-state-t [m]
    (fn [mv s] (domonad m [v (mv s)]
-                         (do (prn "final state: " (second v))
+                         (do (println (str "final state: " (second v)))
                              (first v)))))
 
 ; interpreter
@@ -135,17 +135,7 @@
 
 (def interp-put-state (put-state-t (cont-t (env-t error))))
 
-(defstruct interp-state :time)
-
-(def interp-get-time
-  (domonad interp-monad [s interp-get-state] (get s :time)))
-
-(def interp-inc-time
-  (domonad interp-monad [s interp-get-state
-                         _ (interp-put-state
-                             (let [new-time (+ 1 (get s :time))]
-                               (assoc s :time new-time)))]
-                        nil))
+(defstruct interp-state :cells)
 
 ; rebuild local-env around a continuation monad transformer
 (defn cont-local-env [m local-env-m capture-env-m]
@@ -201,8 +191,6 @@
 (defn interp [e]
   ; (prn "interp: " e)
   (cond
-   (= e 'tick) interp-inc-time
-   (= e 'time) interp-get-time
    (symbol? e) (domonad interp-monad
 		  [v (interp-lookup e)
 		   r (if v
@@ -248,6 +236,33 @@
                                        (let [new-env (add-to-env ce (first args) arg_cl)
                                              body_cl (make-closure new-env (second args))]
                                             (interp body_cl))))
+		  (= t 'new-ref)  (domonad interp-monad
+				     [val  (interp (first args))
+				      s    interp-get-state
+				      refv (m-result (get s :cells))
+				      idx  (m-result (count refv))
+				      newv (m-result (conj refv val))
+				      news (m-result (assoc s :cells newv))
+				      _    (interp-put-state news)]
+				     idx)
+		  (= t 'read)     (domonad interp-monad
+				     [idx  (interp (first args))
+				      s    interp-get-state
+				      refv (m-result (get s :cells))
+				      v    (m-result (nth refv idx 'not-found))
+				      x    (if (= v 'not-found)
+					     (report-error "invalid reference")
+					     (interp v))]
+				     x)
+		  (= t 'write)    (domonad interp-monad
+				     [idx  (interp (first args))
+				      val  (interp (second args))
+				      s    interp-get-state
+				      refv (m-result (get s :cells))
+				      newv (m-result (assoc refv idx val))
+				      news (m-result (assoc s :cells newv))
+				      _    (interp-put-state news)]
+				     nil)
                   (= t 'callcc) (domonad interp-monad
                                   [ce interp-capture-env
                                    r (interp-callcc
@@ -282,9 +297,13 @@
 
 ; examples
 
-(def initial-env {'x 7, 'y 21})
+(def initial-env {'x     7,
+		  'y    21,
+                  'time  0, ; time is a pre-defined reference
+		  'tick '(write time (+ 1 (read time)))
+                  })
 
-(def initial-state (struct interp-state 0))
+(def initial-state (struct interp-state (vector 0)))
 
 (def run-interp-state (eval-state-t (cont-t (env-t error))))
 
@@ -363,13 +382,13 @@
 (run-interp '(do 5 7))
 
 ; success 0
-(run-interp 'time)
+(run-interp '(read time))
 
 ; success 1
-(run-interp '(do tick time))
+(run-interp '(do tick (read time)))
 
 ; success 2
-(run-interp '(+ (do tick 1) time))
+(run-interp '(+ (do tick 1) (read time)))
 
 ; demonstrate callcc resets the state
 ; success 4 (not 6)
@@ -378,9 +397,8 @@
        (+ (callcc exit
             (do tick
                 tick
-                ((lambda-v t0 (exit t0)) time)))
-           time)))
-
+                ((lambda-v t0 (exit t0)) (read time))))
+           (read time))))
 
 ; demonstrate alt-callcc preserves the state
 ; success 6 (not 4)
@@ -389,6 +407,34 @@
        (+ (alt-callcc exit
             (do tick
                 tick
-                ((lambda-v t0 (exit t0)) time)))
-           time)))
+                ((lambda-v t0 (exit t0)) (read time))))
+           (read time))))
 
+
+
+; success 1
+(run-interp '(new-ref 7))
+
+; success 7
+(run-interp '(read (new-ref 7)))
+
+; success 8
+(run-interp '((lambda-v r (+ 1 (read r))) (new-ref 7)))
+
+; success 6
+(run-interp
+  '((lambda-v x-ref
+      ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
+				   (read x-ref))))
+    (new-ref 3)))
+
+; success 260
+(run-interp
+   '(((lambda-v x-ref
+        (lambda-v y-ref
+	   ((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
+	    (do (write x-ref (+ 1 (read x-ref)))
+		(write y-ref (+ 1 (read y-ref)))
+		(+ (read x-ref) (read y-ref))))))
+      (new-ref 3))
+     (new-ref 5)))
