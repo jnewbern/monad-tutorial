@@ -144,7 +144,7 @@
 
 (defn callcc-state-t [callcc-m]
    (fn [f] ; function expecting a continuation
-     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
+     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
 
 (defn local-env-state-t [local-env-m]
   (fn [f mv]
