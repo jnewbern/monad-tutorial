@@ -341,3 +341,12 @@
 
 ; success 7
 (run-interp '(do 5 7))
+
+; success 0
+(run-interp 'time)
+
+; success 1
+(run-interp '(do tick time))
+
+; success 2
+(run-interp '(+ (do tick 1) time))
