@@ -98,12 +98,17 @@
 
 (def interp-capture-env (lift-env (capture-env-t error)))
 
-(defn interp-local-env [f mv]
-   (fn [c]
-     (domonad (env-t error)
-        [e (capture-env-t error)
-         r (local-env f (mv (fn [x] (local-env (fn [_] e) (c x)))))]
-         r)))
+; rebuild local-env around a continuation monad transformer
+(defn cont-local-env [m local-env-m capture-env-m]
+   (fn [f mv]
+     (fn [c]
+       (domonad m
+          [e capture-env-m
+           r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
+           r))))
+
+(def interp-local-env
+   (cont-local-env (env-t error) local-env (capture-env-t error)))
 
 ; closures
 (defstruct closure :env :body)
