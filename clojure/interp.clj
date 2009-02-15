@@ -350,3 +350,13 @@
 
 ; success 2
 (run-interp '(+ (do tick 1) time))
+
+; demonstrate callcc resets the state
+; success 4 (not 6)
+(run-interp
+  '(do tick
+       (+ (callcc exit
+            (do tick
+                tick
+                ((lambda-v t0 (exit t0)) time)))
+           time)))
