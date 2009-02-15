@@ -84,15 +84,44 @@
 ; a default continuation (the lower-level m-result)
 (defn eval-cont-t [m mv] (with-monad m (mv m-result)))
 
-;
+; state monad transformer
+(defn state-t
+   "Monad transformer that adds local state to an existing monad"
+   [m]
+   (monad [m-result (fn m-result-state-t [v]
+                       (with-monad m (fn [s] (m-result (list v s)))))
+           m-bind   (fn m-bind-state-t [mv f]
+                       (fn [s]
+                          (domonad m
+                            [[v ss] (mv s)
+                              r ((f v) ss)]
+                            r)))]))
 
-(def lift-env (lift-cont-t (env-t error)))
+(defn lift-state-t [m]
+   (fn [mv]
+     (fn [s]
+        (domonad m [v mv] (list v s)))))
 
-(defn lift-error [mv] (lift-env (lift-env-t mv)))
+(defn get-state-t [m]
+    (fn [s] (domonad m [] (list s s))))
+
+(defn put-state-t [m ss]
+    (fn [s] (domonad m [] (list nil ss))))
+
+(defn eval-state-t [m]
+   (fn [mv s] (domonad m [v (mv s)]
+                         (do (prn "final state: " (second v))
+                             (first v)))))
 
 ; interpreter
 
-(def interp-monad (cont-t (env-t error)))
+(def interp-monad (state-t (cont-t (env-t error))))
+
+(def lift-cont (lift-state-t (cont-t (env-t error))))
+
+(def lift-env (comp lift-cont (lift-cont-t (env-t error))))
+
+(def lift-error (comp lift-env lift-env-t))
 
 (defn report-error [desc] (lift-error (fail desc)))
 
@@ -111,8 +140,20 @@
            r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
            r))))
 
+; lift callcc over a state monad
+
+(defn callcc-state-t [callcc-m]
+   (fn [f] ; function expecting a continuation
+     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
+
+(defn local-env-state-t [local-env-m]
+  (fn [f mv]
+    (fn [s] (local-env-m f (mv s)))))
+
 (def interp-local-env
-   (cont-local-env (env-t error) local-env (capture-env-t error)))
+   (local-env-state-t (cont-local-env (env-t error) local-env (capture-env-t error))))
+
+(def interp-callcc (callcc-state-t callcc))
 
 ; closures
 (defstruct closure :env :body)
@@ -175,7 +216,7 @@
                                             (interp body_cl))))
                   (= t 'callcc) (domonad interp-monad
                                   [ce interp-capture-env
-                                   r (callcc
+                                   r (interp-callcc
                                        (fn [cont]
                                          (let [new-cont
                                                 (fn [arg]
@@ -199,19 +240,27 @@
 
 (def initial-env {'x 7, 'y 21})
 
+(def initial-state "initial state")
+
+(def run-interp-state (eval-state-t (cont-t (env-t error))))
+
 (defn run-interp [exp]
       (prn 'run-interp exp)
       (prn (run-with-env initial-env
-             (eval-cont-t (env-t error) (interp exp)))))
-
-;fail: undefined variable: z
-(run-interp 'z)
+             (eval-cont-t (env-t error)
+               (run-interp-state (interp exp) initial-state)))))
 
 ; success: 3
 (run-interp 3)
 
+; success: 4
+(run-interp '(+ 2 2))
+
 ; success: 7
 (run-interp 'x)
+
+;fail: undefined variable: z
+(run-interp 'z)
 
 ; success: 17
 (run-interp '(+ 3 (* 2 x)))
