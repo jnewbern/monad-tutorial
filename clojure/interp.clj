@@ -105,8 +105,8 @@
 (defn get-state-t [m]
     (fn [s] (domonad m [] (list s s))))
 
-(defn put-state-t [m ss]
-    (fn [s] (domonad m [] (list nil ss))))
+(defn put-state-t [m]
+    (fn [ss] (fn [s] (domonad m [] (list nil ss)))))
 
 (defn eval-state-t [m]
    (fn [mv s] (domonad m [v (mv s)]
