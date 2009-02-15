@@ -182,6 +182,14 @@
 (defn interp-closure [c interp]
   (interp-local-env (fn [_] (get c :env)) (interp (get c :body))))
 
+; wrap continuation into usable function
+; interp hack again
+(defn interp-wrap-cont [interp cont]
+  (fn [arg] (domonad interp-monad
+              [v (interp arg)
+               r (cont v)]
+              r)))
+
 (defn interp [e]
   ; (prn "interp: " e)
   (cond
@@ -236,12 +244,7 @@
                                   [ce interp-capture-env
                                    r (interp-callcc
                                        (fn [cont]
-                                         (let [new-cont
-                                                (fn [arg]
-						  (domonad interp-monad
-                                                      [v (interp arg)
-                                                       r (cont v)]
-                                                      r))
+                                         (let [new-cont (interp-wrap-cont interp cont)
                                                new-env (add-to-env ce (first args) new-cont)
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
