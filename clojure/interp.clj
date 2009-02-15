@@ -228,6 +228,12 @@
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
                                    r)
+                  (= t 'do) (if (empty? args)
+                                (report-error "nothing to do")
+                                (let [to_do (map interp args)]
+                                     (domonad interp-monad
+                                        [results (m-seq to_do)]
+                                        (last results))))
 		  :default (domonad interp-monad
                              [f (interp (first e))
                               ce interp-capture-env
@@ -311,3 +317,9 @@
                      (exit-fn (lambda-v r (* n (+ r 1))))))) 5))
 
 
+
+; fail - nothing to do
+(run-interp '(do))
+
+; success 7
+(run-interp '(do 5 7))
