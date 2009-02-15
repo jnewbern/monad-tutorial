@@ -157,10 +157,16 @@
            r))))
 
 ; lift callcc over a state monad
-
+; restores state when calling continuation
 (defn callcc-state-t [callcc-m]
    (fn [f] ; function expecting a continuation
      (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
+
+; state-preserving version of callcc
+; equivalent to (cont-t (state-t)) instead of (state-t (cont-t))
+(defn alt-callcc-state-t [callcc-m]
+   (fn [f] ; function expecting a continuation
+     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
 
 (defn local-env-state-t [local-env-m]
   (fn [f mv]
@@ -170,6 +176,8 @@
    (local-env-state-t (cont-local-env (env-t error) local-env (capture-env-t error))))
 
 (def interp-callcc (callcc-state-t callcc))
+
+(def interp-alt-callcc (alt-callcc-state-t callcc))
 
 ; closures
 (defstruct closure :env :body)
@@ -249,6 +257,15 @@
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
                                    r)
+                  (= t 'alt-callcc) (domonad interp-monad
+                                      [ce interp-capture-env
+                                       r (interp-alt-callcc
+                                           (fn [cont]
+                                             (let [new-cont (interp-wrap-cont interp cont)
+                                                   new-env  (add-to-env ce (first args) new-cont)
+                                                   body_cl (make-closure new-env (second args))]
+                                               (interp body_cl))))]
+                                       r)
                   (= t 'do) (if (empty? args)
                                 (report-error "nothing to do")
                                 (let [to_do (map interp args)]
