@@ -76,19 +76,24 @@ factored out into a single code fragment that can be easily modified
 or replaced.  Monads make it easier to isolate effectful computations
 and to track and delimit the scope of effects within a program.
 
-There are 3 components to a computational monad:
+\subsection{Definition}
 
+There are three components to a computational monad:
+\begin{enumerate}
+\item
 Some additional structure around a base value which will model the
 effect of the monad.  We represent the type of the base value by
 $t$ and the type of the monadic value which extends the base type
 with a model of the desired effect by writing the name of the effect
 in a subscript, $t_{effect}$.
 
+\item
 A function, {\tt result}, of type $t \rightarrow t_{effect}$) which
 takes a value of the base type $t$ and lifts it to a value of the
 monadic type by adding structure corresponding to a pure computation
 with no effect.
 
+\item
 A function, {\tt bind}, of type $t_{effect} \rightarrow (t \rightarrow
 t_{effect}) \rightarrow t_{effect}$ which combines a monadic value
 with a function to create a new monadic value and combines the effects
@@ -98,34 +103,162 @@ applying the input function.  The effect structure of the result of
 {\tt bind} is the composition of the effect structure of the input
 value with the effect structure of the result of the function
 application.
+\end{enumerate}
 
-Since the {\tt bind} function composes existing effect structures into
-its result effect structure and the {\tt result} function lifts a
-value purely -- that is without adding an effect -- any useful
-non-identity monad will be augmented with additional functions which
-create monadic values with effects.  Unlike {\tt return} and
-{\tt bind}, the names and types of these functions are not standardized
-and will vary between different monads.
+Since the {\tt bind} function only composes existing effect structures
+and the {\tt result} function lifts a value purely -- that is without
+adding an effect -- any useful non-identity monad will be augmented
+with additional functions which create monadic values with effects.
+Unlike {\tt result} and {\tt bind}, the names and types of these
+functions are not standardized and will vary between different monads.
 
-<<< monad laws>>>
+\subsection{Monad Laws}
+
+The {\tt result} and {\tt bind} functions together describe a system
+for composing computations with effects.  To ensure that a monad
+implements a consistent effect system, the monad should obey three laws:
+
+\begin{enumerate}
+\item {\tt bind (result x) f $\equiv$ f x}
+\item {\tt bind m result $\equiv$ m}
+\item {\tt bind (bind m f) g $\equiv$ bind m ($\lambda$x $\rightarrow$ bind (f x) g)}
+\end{enumerate}
+
+The first law requires that {\tt result} is a left-identity with
+respect to {\tt bind}. The second law requires that {\tt result} is a
+right-identity with respect to {\tt bind}. The third law is a kind of
+associativity law for {\tt bind}.
+
+\subsection{Monad Transformers}
+
+Monad transformers allow monads for different effects to be composed
+into a combined monad.  Multiple monad transformers can be applied to
+a base monad to create a ``transformer stack'' that combines the
+effects of each individual monad in the stack.  In general monad
+composition is not commutative, so the order in which transformers are
+applied in the stack affects the semantics of the combined monad.
 
 \section{Monads in Haskell}
 
 In the pure, non-strict, statically-typed functional language Haskell
 monads are pervasive.  Impure features such as I/O and mutable state
 are built on a monadic framework and monads are used to model failure,
-nondeterminism, partiality, and numerous other effects.
+nondeterminism, partiality, parsing, and numerous other effects.
 
 In Haskell a monad is represented by a constructor for the type of
-monadic values given the type of the base value, a {\tt result}
+monadic values given the type of the base value, a {\tt retur}
 function for lifting values of the base type to the monadic type, and
-a binding combinator, {\tt >>=}, for composing a value of the monadic
-type with a function to create a new value of the monadic type,
-combining the effects of the input value and the function.
+an infix binding combinator, {\tt >>=}, for composing a value of the
+monadic type with a function to create a new value of the monadic
+type, combining the effects of the input value and the function.
+
+\begin{figure}
+\begin{center}
+\begin{verbatim}
+class Monad m where
+    (>>=)  :: m a -> (a -> m b) -> m b
+    return :: a -> m a
+\end{verbatim}
+\end{center}
+\caption{Haskell's Monad class}
+\label{fig-Haskell-Monad-class}
+\end{figure}
+
+Haskell's {\tt return} function represents {\tt result} and {\tt >>=}
+represents {\tt bind}.
+
+Haskell provides a library of standard monads and monad transformers,
+including transformers for working with state, continuations, failure,
+environments, logging and errors.  In addition, users can easily
+define their own monads and monad transformers with work seamlessly
+with Haskell's built in notation and features for working with monads.
 
 \section{Monads in Scheme}
 
+Scheme does not have native support for monads, but a number of
+different packages have been developed for working with monads.  No
+package has reached the level of a de-facto standard.
+
 \section{Monads in Clojure}
+
+Clojure has a growing library of contributed code for working with
+monads patterned after Haskell's monad libraries in its
+clojure.contrib.monads library.
+
+Monads are represented by structures with standard field names
+{\tt m-result} and {\tt m-bind} and the library provides a number of
+macros for working with them.
+
+The {\tt with-monad} macro takes a monad structure and a number of
+expressions as arguments and binds the {\tt m-bind} and {\tt m-result}
+fields of the monad structure to local names so that any occurence of
+{\tt m-bind} or {\tt m-result} in the expressions will refer to the
+fields of the selected monad.  The expressions are said to be ``run
+in'' the selected monad.  Often monadic code can only be run in a
+single monad, but it sometimes possible to write code which can run in
+different monads to achieve different effects (eg. running in either
+an interpretation monad or a compilation monad).  The definition:
+\begin{verbatim}
+(defn lookup [key]
+  (with-monad maybe
+    (let [entry (find db key)]
+       (if entry
+           (m-result (second entry))
+           m-zero))))
+\end{verbatim}
+shows a simple example of {\tt with-monad} used to run a computation
+in the {\tt maybe} monad.
+
+The {\tt domonad} macro is used for monad comprehensions with a list
+of monadic bindings and a final expression.  Each of the bindings is
+evaluated in turn, making the value accessible to all later bindings
+and the final expression.  The final result of the {\tt domonad}
+comprehension is the value of the final expression returned using
+the monad's {\tt m-result} function.
+
+For example, the comprehension:
+\begin{verbatim}
+(domonad maybe
+  ; bindings
+  [record (lookup employee)]
+  ; final expression
+  (:last-name record))
+\end{verbatim}
+is equivalent to the unsugared form:
+\begin{verbatim}
+(bind (lookup employee)
+      (fn [record]
+        (m-result (:last-name record))))
+\end{verbatim}
+
+The {\tt defmonad} macro allows definition of user-defined named
+macros.  It also used internally to define the monads supplied
+with the library, such as the {\tt maybe} monad.
+
+\begin{figure}
+\begin{center}
+\begin{verbatim}
+(defmonad maybe
+   "Monad describing computations with possible
+    failures. Failure is represented by nil,
+    any other value is considered valid.
+    As soon as a step returns nil, the whole
+    computation will yield nil as well."
+   [m-zero   nil
+    m-result (fn m-result-maybe [v] v)
+    m-bind   (fn m-bind-maybe [mv f]
+               (if (nil? mv) nil (f mv)))
+    m-plus   (fn m-plus-maybe [& mvs]
+               (first (drop-while nil? mvs)))
+    ])
+
+\end{verbatim}
+\end{center}
+\caption{Clojure's maybe monad definition}
+\label{fig-Clojure-maybe-defn}
+\end{figure}
+
+
 
 \section{A Modular Interpreter}
 
