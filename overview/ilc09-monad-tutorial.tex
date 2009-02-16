@@ -19,7 +19,7 @@
 \documentclass[natbib,10pt]{sigplanconf}
 
 \usepackage{amsmath}
-
+\usepackage{url}
 \begin{document}
 
 \conferenceinfo{ILC '09}{March 22--25, 2009, Cambridge, Massachusetts, USA.}
@@ -70,10 +70,11 @@ The monad design pattern adds structure to a value so that effects
 associated with computing the value can be modeled.  A wide variety of
 effects can be modeled this way, including things that are not
 normally thought of as effects, such as parser failure or accessing an
-environment of bindings.
+environment of bindings \citep{wadlermonads, parser-combinators}.
 
 For the programmer, monads are useful tools for structuring functional
-programs because they provide modularity, flexibility and isolation.
+programs because they provide modularity, flexibility and isolation 
+\citep{all-about-monads, pureshirt}.
 Modularity is achieved because monads allow effectful computations to
 be composed from simpler effectful computations. Monadic programs can be
 more flexible than non-monadic programs because monads separate 
@@ -411,12 +412,6 @@ Clojure's monad library.
 %Acknowledgments, if needed.
 
 \bibliographystyle{plainnat}
-
-\begin{thebibliography}{}
-
-\bibitem{smith02}
-Smith, P. Q. reference text
-
-\end{thebibliography}
+\bibliography{ilc09-monad-tutorial}
 
 \end{document}
