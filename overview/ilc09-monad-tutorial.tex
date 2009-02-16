@@ -258,9 +258,115 @@ with the library, such as the {\tt maybe} monad.
 \label{fig-Clojure-maybe-defn}
 \end{figure}
 
-
-
 \section{A Modular Interpreter}
+
+A simple interpreter provides a nice example of modular monad
+composition in Clojure.  Different effects in the interpreter are each
+encapsulated in different monads, providing a set of language modules
+which can be composed using different monad transformer combinations
+to build interpreters for different language subsets.
+
+The first fragment is a simple arithmetic expression language
+supporting addition, subtraction, multiplication and division.
+Division is a partial function since there is no result when the
+denominator is zero.  The implementation uses an error monad to
+support partiality as an effect.  The error monad distinguishes
+between defined values and undefined values, which are associated
+with a failure description.
+
+\begin{figure*}
+\begin{center}
+\begin{verbatim}
+(defn interp [e]
+  (cond
+   (number? e) (domonad interp-monad [] e)
+   (seq? e)    (let [t    (first e)
+                     args (rest e)]
+                (cond
+                  (= t '+) (domonad interp-monad
+                              [x (interp (first args))
+                               y (interp (second args))]
+                              (+ x y))
+                  (= t '-) (domonad interp-monad
+                              [x (interp (first args))
+                               y (interp (second args))]
+                              (- x y))
+                  (= t '*) (domonad interp-monad
+                              [x (interp (first args))
+                               y (interp (second args))]
+                              (* x y))
+                  (= t '/) (domonad interp-monad
+                              [x (interp (first args))
+                               y (interp (second args))
+                               r (if (and (number? y) (not= 0 y))
+                                     (m-result (/ x y))
+                                     (report-error "division by 0"))]
+                              r)))))
+\end{verbatim}
+\end{center}
+\caption{Interpreter for an arithmetic expression language}
+\label{fig-interp-0}
+\end{figure*}
+
+The interpreter in Figure \ref{fig-interp-0} can be run in the error
+monad to evaluate simple arithmetic expressions.  For {\tt '(+ 2 2)}
+the interpreter returns {\tt (ok 4)}, but {\tt '(/ 12 0)} results in
+{\tt (fail ``division by 0'')}.
+
+To extend the interpreter with an environment of bindings an
+environment monad transformer is added to the monad stack.  The
+combined {\tt (env-t error)} monad provides both partiality and
+binding environment effects.  Adding a clause to the {\tt cond} block
+to handle symbols (using a new {\tt report-error} function to match the
+augmented monad transformer stack):
+\begin{verbatim}
+(symbol? e)
+  (domonad interp-monad
+     [v (interp-lookup e)
+      r (if v
+            (interp v)
+            (report-error (undef-msg e)))]
+     r)
+\end{verbatim}
+allows the interpreter to be run with an environment of constant
+bindings.  For example,
+\begin{verbatim}
+(run-with-env {'pi 3.14159} (interp '(* 2 pi)))
+\end{verbatim}
+yields
+\begin{verbatim}
+(ok 6.28318)
+\end{verbatim}
+The symbol lookup can also make use of the underlying error monad
+to report undefined symbols:
+\begin{verbatim}
+(run-with-env {'pi 3.14159} (interp '(+ 4 z)))
+\end{verbatim}
+returns
+\begin{verbatim}
+(fail "undefined variable z")
+\end{verbatim}
+
+The same binding environment can be used to implement argument
+bindings in function abstractions, combining the arithmetic expression
+language with the lambda calculus.
+
+Adding a state monad to the transformer stack allows the language to
+be further extended with a language fragment for creating, reading
+and writing mutable reference cells.
+
+Including the continuation monad allows the implementation of
+{\tt callcc} in the interpreter.  The ordering of the continuation
+monad transformer and the state monad transformer within the
+transformer stack determines whether or not {\tt callcc} resets
+or preserves the state.
+
+The use of monad transformers allows each language fragment to written
+in a modular style.  The various language building blocks can be mixed
+and matched and the transformer stack can be reordered to construct
+language interpreters with different feature sets and semantics.
+
+These examples are covered in complete detail in the full tutorial.
 
 %\appendix
 %\section{Appendix Title}
