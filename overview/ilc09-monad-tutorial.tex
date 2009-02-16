@@ -30,7 +30,7 @@
 \titlebanner{DRAFT}        % These are ignored unless
 \preprintfooter{A tutorial on using monads in Clojure and scheme}   % 'preprint' option specified.
 
-\title{Monads for the Working List Programmer}
+\title{Monads for the Working Lisp Programmer}
 % \subtitle{Subtitle Text, if any}
 
 \authorinfo{Ravi Nanavati\and Jeff Newbern}
@@ -45,7 +45,7 @@ Monads are a computational pattern for encapsulating and controlling
 effects.  First employed in pure languages, monad design patterns have
 recently been implemented in impure functional languages.  This
 tutorial introduces monads as implemented in the pure language Haskell
-before describing monad facilities in scheme and Clojure.  An extended
+before describing monad facilities for Scheme and Clojure.  An extended
 example of monadic programming in Clojure is developed by building a
 modular language interpreter.
 
@@ -75,48 +75,55 @@ environment of bindings.
 For the programmer, monads are useful tools for structuring functional
 programs because they provide modularity, flexibility and isolation.
 Modularity is achieved because monads allow effectful computations to
-be composed from simpler effectful computations.  Programs built using
-monads can be more flexible than non-monadic programs because the
-specification of the strategy for combining effectful computations is
-factored out into a single code fragment that can be easily modified
-or replaced.  Monads make it easier to isolate effectful computations
-and to track and delimit the scope of effects within a program.
+be composed from simpler effectful computations. Monadic programs can be
+more flexible than non-monadic programs because monads separate 
+effectful processing and the plumbing required to implement effects - 
+allowing both plumbing and processing to be changed or replaced
+independently. Monads also make it easier to isolate effectful 
+computations and to track and delimit the scope of effects within a 
+program.
 
 \subsection{Definition}
 
 There are three components to a computational monad:
 \begin{enumerate}
 \item
-Some additional structure around a base value which will model the
-effect of the monad.  We represent the type of the base value by
-$t$ and the type of the monadic value which extends the base type
-with a model of the desired effect by writing the name of the effect
+A common structure around base values which will model the
+effect of the monad.  We can represent the type of an arbitrary 
+base value by $t$. Corresponding to $t$, the type of a monadic 
+value which extends the base value with a model of the desired 
+effect can be described by by writing the name of the effect 
 in a subscript, $t_{effect}$.
 
 \item
-A function, {\tt result}, of type $t \rightarrow t_{effect}$) which
-takes a value of the base type $t$ and lifts it to a value of the
+A polymorphic function, {\tt result}, of type $t \rightarrow t_{effect}$) 
+which takes a value of the base type $t$ and lifts it to a value of the
 monadic type by adding structure corresponding to a pure computation
 with no effect.
 
 \item
-A function, {\tt bind}, of type $t_{effect} \rightarrow (t \rightarrow
-t_{effect}) \rightarrow t_{effect}$ which combines a monadic value
-with a function to create a new monadic value and combines the effects
-of the two.  The values of the base type in the result of {\tt bind}
-are computed from the values of the base type in the input value by
-applying the input function.  The effect structure of the result of
-{\tt bind} is the composition of the effect structure of the input
-value with the effect structure of the result of the function
+A second polymorphic function, {\tt bind}, of type 
+$t_{effect} \rightarrow (t \rightarrow t_{effect}) \rightarrow t_{effect}$. 
+{\tt bind} combines a monadic value with a function from the base type to 
+a new monadic value, combining the effects of both.  The values of the base 
+type in the result of {\tt bind} are computed from the values of the base type 
+in the input value by applying the input function.  The effect structure 
+of the result of {\tt bind} is the composition of the effect structure 
+of the input value with the effect structure of the result of the function
 application.
 \end{enumerate}
 
 Since the {\tt bind} function only composes existing effect structures
 and the {\tt result} function lifts a value purely -- that is without
-adding an effect -- any useful non-identity monad will be augmented
+adding an effect -- any useful monad, with one exception, will be augmented
 with additional functions which create monadic values with effects.
 Unlike {\tt result} and {\tt bind}, the names and types of these
-functions are not standardized and will vary between different monads.
+functions are not standardized and will vary between different monads. 
+The one useful monad without additional effect-creating functions is the 
+identity monad, which models function application. {\tt return} for the 
+identity monad is the identity function and {\tt bind} is ordinary 
+function application (with the function to apply as the second argument
+of {\tt bind} and the value to which it is applied as the first). 
 
 \subsection{Monad Laws}
 
@@ -149,10 +156,10 @@ applied in the stack affects the semantics of the combined monad.
 In the pure, non-strict, statically-typed functional language Haskell
 monads are pervasive.  Impure features such as I/O and mutable state
 are built on a monadic framework and monads are used to model failure,
-nondeterminism, partiality, parsing, and numerous other effects.
+nondeterminism, partiality, parsing, and numerous other effects. 
 
 In Haskell a monad is represented by a constructor for the type of
-monadic values given the type of the base value, a {\tt retur}
+monadic values given the type of the base value, a {\tt return}
 function for lifting values of the base type to the monadic type, and
 an infix binding combinator, {\tt >>=}, for composing a value of the
 monadic type with a function to create a new value of the monadic
@@ -173,17 +180,25 @@ class Monad m where
 Haskell's {\tt return} function represents {\tt result} and {\tt >>=}
 represents {\tt bind}.
 
-Haskell provides a library of standard monads and monad transformers,
-including transformers for working with state, continuations, failure,
-environments, logging and errors.  In addition, users can easily
-define their own monads and monad transformers with work seamlessly
-with Haskell's built in notation and features for working with monads.
+Haskell provides a special syntax, {\tt do}-notation, that provides
+and imperative interface for describing monadic compuations that is 
+easier to use than manually applying {\tt >>=} and {\tt return} 
+manually. Haskell also provides a library of standard monads and 
+monad transformers, including transformers for working with state, 
+continuations, failure, environments, logging and errors.  In addition, 
+users can easily define their own monads and monad transformers. Both
+user and library monads work seamlessly with the {\tt do}-notation and
+Haskell's other features for working with monads.
 
 \section{Monads in Scheme}
 
-Scheme does not have native support for monads, but a number of
-different packages have been developed for working with monads.  No
-package has reached the level of a de-facto standard.
+Scheme does not have native support for monads, but, using macros,
+a number of different packages have been developed for working 
+with monads.  No package has reached the level of a de-facto standard, 
+but Scheme provides a simple environment for studying the implementation
+of monadic syntax. In the full tutorial, an example of a minimal Scheme 
+monad package will be developed in order to demonstrate how a Lisp 
+programmer can easily build their own monad library.
 
 \section{Monads in Clojure}
 
@@ -203,7 +218,7 @@ fields of the selected monad.  The expressions are said to be ``run
 in'' the selected monad.  Often monadic code can only be run in a
 single monad, but it sometimes possible to write code which can run in
 different monads to achieve different effects (eg. running in either
-an interpretation monad or a compilation monad).  The definition:
+an interpretation monad or a compilation monad).  This definition:
 \begin{verbatim}
 (defn lookup [key]
   (with-monad maybe
@@ -272,6 +287,7 @@ encapsulated in different monads, providing a set of language modules
 which can be composed using different monad transformer combinations
 to build interpreters for different language subsets.
 
+\subsection {A Simple Arithmetic Language}
 The first fragment is a simple arithmetic expression language
 supporting addition, subtraction, multiplication and division.
 Division is a partial function since there is no result when the
@@ -319,12 +335,12 @@ monad to evaluate simple arithmetic expressions.  For {\tt '(+ 2 2)}
 the interpreter returns {\tt (ok 4)}, but {\tt '(/ 12 0)} results in
 {\tt (fail ``division by 0'')}.
 
+\subsection{Adding an Environment}
 To extend the interpreter with an environment of bindings an
 environment monad transformer is added to the monad stack.  The
 combined {\tt (env-t error)} monad provides both partiality and
 binding environment effects.  Adding a clause to the {\tt cond} block
-to handle symbols (using a new {\tt report-error} function to match the
-augmented monad transformer stack):
+to handle symbols:
 \begin{verbatim}
 (symbol? e)
   (domonad interp-monad
@@ -353,18 +369,19 @@ returns
 (fail "undefined variable z")
 \end{verbatim}
 
-The same binding environment can be used to implement argument
-bindings in function abstractions, combining the arithmetic expression
-language with the lambda calculus.
+The same binding environment can also be used to implement argument
+bindings in function abstractions and local definitions, extending
+the arithmetic expression language with basic means of abstraction.
 
-Adding a state monad to the transformer stack allows the language to
-be further extended with a language fragment for creating, reading
-and writing mutable reference cells.
-
-Including the continuation monad allows the implementation of
-{\tt callcc} in the interpreter.  The ordering of the continuation
-monad transformer and the state monad transformer within the
-transformer stack determines whether or not {\tt callcc} resets
+\subsection{Additional Extensions}
+Additional facilities can be added to the interpreter by adding additional
+monads to the transformer stack. For example, adding a state monad to the 
+transformer stack allows the language to be extended with a language 
+fragment for creating, reading and writing mutable reference cells. Including 
+the continuation monad allows the implementation of {\tt callcc} in the 
+interpreter.  The ordering of the continuation monad transformer 
+and the state monad transformer within the transformer stack determines 
+whether or not calling a continuation captured with {\tt callcc} resets 
 or preserves the state.
 
 The use of monad transformers allows each language fragment to written
