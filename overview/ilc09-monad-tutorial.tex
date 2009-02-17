@@ -225,7 +225,7 @@ will refer to the fields of the selected monad.  The expressions are
 said to be ``run in'' the selected monad.  Often monadic code can only
 be run in a single monad, but sometimes it is possible to write code
 which can run in different monads to achieve different effects
-(eg. running in either an interpretation monad or a compilation
+(e.g. running in either an interpretation monad or a compilation
 monad).  This definition:
 \begin{verbatim}
 (defn lookup [key]
@@ -244,6 +244,8 @@ evaluated in turn, making the value accessible to all later bindings
 and the final expression.  The final result of the {\tt domonad}
 comprehension is the value of the final expression returned using
 the monad's {\tt m-result} function.
+
+\pagebreak
 
 For example, the comprehension:
 \begin{verbatim}
