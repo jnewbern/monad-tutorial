@@ -195,10 +195,12 @@ Haskell's other features for working with monads.
 
 Scheme does not have native support for monads, but, using macros,
 a number of different packages have been developed for working 
-with monads.  No package has reached the level of a de-facto standard, 
-but Scheme provides a simple environment for studying the implementation
-of monadic syntax. In the full tutorial, an example of a minimal Scheme 
-monad package will be developed in order to demonstrate how a Lisp 
+with monads. Unlike Clojure, no monad package has become a de-facto
+standard for Scheme. However, one Scheme monad package \citep{scheme-monads} 
+is particularly simple and provides a good framework for discussing 
+the implementation of monad syntax. In the full tutorial, this monad 
+package and the implementation of its {\tt letM} and {\tt letM*} macros
+will be will be developed in order to demonstrate how a Lisp 
 programmer can easily build their own monad library.
 
 \section{Monads in Clojure}
