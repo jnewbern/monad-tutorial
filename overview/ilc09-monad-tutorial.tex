@@ -100,14 +100,14 @@ with no effect.
 
 \item
 A second polymorphic function, \texttt{bind}, of type
-$t_{effect} \rightarrow (t \rightarrow t_{effect}) \rightarrow t_{effect}$.
+$t_{effect} \rightarrow (t \rightarrow t'_{effect}) \rightarrow t'_{effect}$.
 \texttt{bind} combines a monadic value with a function that produces a new 
-monadic value. The values of the base type in the result of \texttt{bind} 
-are computed from the values of the base type in the input value by 
-applying the input function.  The effect structure of the result of 
-\texttt{bind} is the composition of the effect structure of the input value 
-with the effect structure of the result of the function application. In other
-words, \texttt{bind} composes effectful computations.
+monadic value. The value of type $t'_{effect}$ in the result of \texttt{bind} 
+is computed from the input value of type $t$ by applying the input function.  
+The effect structure of the result of \texttt{bind} is the composition of 
+the effect structure of the input value with the effect structure of the 
+result of the function application. In other words, \texttt{bind} composes 
+effectful computations.
 \end{enumerate}
 
 Since the \texttt{bind} function only composes existing effect structures
@@ -183,7 +183,7 @@ Haskell's {\tt return} function represents \texttt{result} and
 \hbind \linebreak represents \texttt{bind}.
 
 Haskell includes a special syntax, {\tt do}-notation, that provides
-an imperative interface for describing monadic compuations. This 
+an imperative interface for describing monadic computations. This 
 interface is easier to use than manually applying \hbind \ and {\tt return}
 to structure large monadic computations. Haskell also provides a
 library of standard monads and monad transformers, including
@@ -203,8 +203,8 @@ standard for Scheme. However, one Scheme monad package \citep{scheme-monads}
 is particularly simple and provides a good framework for discussing 
 the implementation of monadic syntax. In the full tutorial, this monad 
 package and the implementation of its {\tt letM} and {\tt letM*} macros
-will be will be developed in order to demonstrate how a Lisp 
-programmer can easily build their own monad library.
+will be developed in order to demonstrate how a Lisp programmer can easily 
+build their own monad library.
 
 \section{Monads in Clojure}
 
@@ -260,7 +260,7 @@ is equivalent to the unsugared form:
         (m-result (:last-name record))))
 \end{verbatim}
 
-The {\tt defmonad} macro allows definition of user-defined named
+The {\tt defmonad} macro can be used to create user-defined named
 monads.  It is also used internally to define the monads supplied
 with the library, such as the {\tt maybe} monad 
 (see Figure \ref{fig-Clojure-maybe-defn}).
