@@ -57,7 +57,7 @@ modular language interpreter.
 Languages
 
 \keywords
-Functional Programming, Haskell, Lisp, Scheme, Clojure, Monads
+Functional Programming, Haskell, Lisp, Scheme, Clojure, Monads, Monad Transformers, Modular Interpreters 
 
 \section{Introduction}
 
@@ -100,14 +100,14 @@ with no effect.
 
 \item
 A second polymorphic function, \texttt{bind}, of type
-$t_{effect} \rightarrow (t \rightarrow t'_{effect}) \rightarrow t'_{effect}$.
-\texttt{bind} combines a monadic value with a function from the base type to
-a new monadic value, combining the effects of both.  The values of the base
-type in the result of \texttt{bind} are computed from the values of the base type
-in the input value by applying the input function.  The effect structure
-of the result of \texttt{bind} is the composition of the effect structure
-of the input value with the effect structure of the result of the function
-application.
+$t_{effect} \rightarrow (t \rightarrow t_{effect}) \rightarrow t_{effect}$.
+\texttt{bind} combines a monadic value with a function that produces a new 
+monadic value. The values of the base type in the result of \texttt{bind} 
+are computed from the values of the base type in the input value by 
+applying the input function.  The effect structure of the result of 
+\texttt{bind} is the composition of the effect structure of the input value 
+with the effect structure of the result of the function application. In other
+words, \texttt{bind} composes effectful computations.
 \end{enumerate}
 
 Since the \texttt{bind} function only composes existing effect structures
@@ -182,25 +182,26 @@ class Monad m where
 Haskell's {\tt return} function represents \texttt{result} and
 \hbind \linebreak represents \texttt{bind}.
 
-Haskell provides a special syntax, {\tt do}-notation, that provides
-an imperative interface for describing monadic compuations that is
-easier to use than manually applying \hbind \ and {\tt return}
+Haskell includes a special syntax, {\tt do}-notation, that provides
+an imperative interface for describing monadic compuations. This 
+interface is easier to use than manually applying \hbind \ and {\tt return}
 to structure large monadic computations. Haskell also provides a
 library of standard monads and monad transformers, including
 transformers for working with state, continuations, failure,
 environments, logging and errors.  In addition, users can easily
 define their own monads and monad transformers. Both user and
 library monads work seamlessly with the {\tt do}-notation and
-Haskell's other features for working with monads.
+the generic monad functions provided by standard Haskell 
+libraries.
 
 \section{Monads in Scheme}
 
 Scheme does not have native support for monads, but, using macros,
-a number of different packages have been developed for working 
-with monads. Unlike Clojure, no monad package has become a de-facto
+a number of different monad packages have been developed. Unlike 
+Clojure, no monad package has become a de-facto
 standard for Scheme. However, one Scheme monad package \citep{scheme-monads} 
 is particularly simple and provides a good framework for discussing 
-the implementation of monad syntax. In the full tutorial, this monad 
+the implementation of monadic syntax. In the full tutorial, this monad 
 package and the implementation of its {\tt letM} and {\tt letM*} macros
 will be will be developed in order to demonstrate how a Lisp 
 programmer can easily build their own monad library.
@@ -208,12 +209,13 @@ programmer can easily build their own monad library.
 \section{Monads in Clojure}
 
 Clojure has a growing library of contributed code for working with
-monads patterned after Haskell's monad libraries in its
-clojure.contrib.monads library \citep{clojure-monads1, clojure-monads2}.
+monads. This library, {\tt clojure.contrib.monads}, is patterned after 
+Haskell's monad libraries \citep{clojure-monads1, clojure-monads2}.
 
 Monads are represented by structures with standard field names
-{\tt m-result} and {\tt m-bind} and the library provides a number of
-macros for working with them.
+{\tt m-result} and {\tt m-bind}. The library includes a number of
+macros that provide convenient monadic syntax defined in terms
+of accesses to these fields of a monad structure.
 
 The {\tt with-monad} macro takes a monad structure and a number of
 expressions as arguments and binds the {\tt m-bind} and {\tt
@@ -259,8 +261,9 @@ is equivalent to the unsugared form:
 \end{verbatim}
 
 The {\tt defmonad} macro allows definition of user-defined named
-macros.  It is also used internally to define the monads supplied
-with the library, such as the {\tt maybe} monad.
+monads.  It is also used internally to define the monads supplied
+with the library, such as the {\tt maybe} monad 
+(see Figure \ref{fig-Clojure-maybe-defn}).
 
 \begin{figure}
 \begin{center}
@@ -296,15 +299,16 @@ to build interpreters for different language subsets
 
 \subsection {A Simple Arithmetic Language}
 
-The first fragment is a simple arithmetic expression language
-supporting addition, subtraction, multiplication and division.
-Division is a partial function since there is no result when the
-denominator is zero.  The implementation uses an error monad to
-support partiality as an effect.  The error monad distinguishes
-between defined values and undefined values, which are associated
-with a failure description.
+The first fragment of our interpreter implements a simple 
+arithmetic expression language supporting addition, subtraction, 
+multiplication and division. Division is a partial function 
+since there is no result when the denominator is zero.  The 
+implementation uses an error monad to support partiality as an effect.  
+The error monad distinguishes between defined values and undefined values, 
+which are associated with a failure description.
 
 \begin{figure}
+\begin{center}
 \begin{verbatim}
 (defn interp [e]
   (cond
@@ -340,6 +344,7 @@ with a failure description.
                         "division by 0"))]
              r)))))
 \end{verbatim}
+\end{center}
 \caption{Interpreter for an arithmetic expression language}
 \label{fig-interp-0}
 \end{figure}
@@ -355,11 +360,12 @@ To extend the interpreter with an environment of bindings an
 environment monad transformer is added to the monad stack.  The
 combined {\tt (env-t error)} monad provides both partiality and
 binding environment effects. Adding a clause to the interpreter
-to handle variable lookup (as in Figure \ref{fig-interp-1}), 
+to handle symbol lookup (as in Figure \ref{fig-interp-1}), 
 allows the interpreter to be run with an environment of immutable 
 bindings. 
 
-\begin{figure} 
+\begin{figure}
+\begin{center} 
 \begin{verbatim}
 (symbol? e)
   (domonad interp-monad
@@ -368,11 +374,10 @@ bindings.
               (report-error (undef-msg e)))]
      r)
 \end{verbatim}
-\caption{Adding variables to the interpreter}
+\end{center}
+\caption{Adding symbol lookup to the interpreter}
 \label{fig-interp-1}
 \end{figure}
-
-\pagebreak
 
 For example,
 \begin{verbatim}
@@ -382,7 +387,7 @@ yields
 \begin{verbatim}
 (ok 6.28318)
 \end{verbatim}
-The symbol lookup can also make use of the underlying error monad
+Symbol lookup can also make use of the underlying error monad
 to report undefined symbols:
 \begin{verbatim}
 (run-with-env {'pi 3.14159} (interp '(+ 4 z)))
@@ -392,8 +397,8 @@ returns
 (fail "undefined variable z")
 \end{verbatim}
 
-The same binding environment can also be used to implement argument
-bindings in function abstractions and local definitions, extending
+The same binding environment can also be used to implement local
+definitions and argument bindings in function abstractions, extending
 the arithmetic expression language with basic means of abstraction.
 
 \subsection{Additional Extensions}
@@ -406,9 +411,10 @@ mutable reference cells. Including the continuation monad allows the
 implementation of {\tt callcc} in the interpreter.  The ordering of
 the continuation monad transformer and the state monad transformer
 within the transformer stack determines whether or not calling a
-continuation captured with {\tt callcc} resets or preserves the
-state.  A logging monad can optionally be incorporated into the
-transformer stack to enable tracing of the interpreter execution.
+continuation captured with {\tt callcc} resets or maintains the
+state associated with the state monad. Tracing of interpreter 
+execution can optionally be supported by incorporating a logging
+monad into the transformer stack.
 
 The use of monad transformers allows each language fragment to be
 written in a modular style.  The various language building blocks can
@@ -416,7 +422,7 @@ be mixed and matched and the transformer stack can be reordered to
 construct language interpreters with different feature sets and
 semantics.
 
-These examples are covered in complete detail in the full tutorial.
+These examples are covered in greater detail in the full tutorial.
 
 \section{Summary}
 
@@ -427,9 +433,7 @@ and to introduce monad transformers.  A simple Scheme monad package
 will be presented to show how a Lisp programmer can use macros to
 implement their own monadic syntax.  The tutorial will conclude with
 an extended example of monadic programming -- building a modular
-interpreter using Clojure's monad library.  The interpreter example
-will contain additional detail which could not be covered in this
-overview.
+interpreter using Clojure's monad library.
 
 %\appendix
 %\section{Appendix Title}
