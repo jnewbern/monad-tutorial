@@ -304,39 +304,47 @@ support partiality as an effect.  The error monad distinguishes
 between defined values and undefined values, which are associated
 with a failure description.
 
-\begin{figure*}
+\begin{figure}
 \begin{center}
 \begin{verbatim}
 (defn interp [e]
   (cond
-   (number? e) (domonad interp-monad [] e)
-   (seq? e)    (let [t    (first e)
-                     args (rest e)]
-                (cond
-                  (= t '+) (domonad interp-monad
-                              [x (interp (first args))
-                               y (interp (second args))]
-                              (+ x y))
-                  (= t '-) (domonad interp-monad
-                              [x (interp (first args))
-                               y (interp (second args))]
-                              (- x y))
-                  (= t '*) (domonad interp-monad
-                              [x (interp (first args))
-                               y (interp (second args))]
-                              (* x y))
-                  (= t '/) (domonad interp-monad
-                              [x (interp (first args))
-                               y (interp (second args))
-                               r (if (and (number? y) (not= 0 y))
-                                     (m-result (/ x y))
-                                     (report-error "division by 0"))]
-                              r)))))
+   (number? e) 
+     (domonad interp-monad [] e)
+   (seq? e)    
+     (let [t (first e)
+           args (rest e)]
+       (cond
+         (= t '+) 
+           (domonad interp-monad
+              [x (interp (first args))
+               y (interp (second args))]
+             (+ x y))
+         (= t '-) 
+            (domonad interp-monad
+              [x (interp (first args))
+               y (interp (second args))]
+             (- x y))
+         (= t '*) 
+            (domonad interp-monad
+              [x (interp (first args))
+               y (interp (second args))]
+             (* x y))
+         (= t '/) 
+            (domonad interp-monad
+              [x (interp (first args))
+               y (interp (second args))
+               r (if (and (number? y) 
+                          (not= 0 y))
+                     (m-result (/ x y))
+                     (report-error 
+                        "division by 0"))]
+             r)))))
 \end{verbatim}
 \end{center}
 \caption{Interpreter for an arithmetic expression language}
 \label{fig-interp-0}
-\end{figure*}
+\end{figure}
 
 The interpreter in Figure \ref{fig-interp-0} can be run in the error
 monad to evaluate simple arithmetic expressions.  For {\mono '(+ 2 2)}
