@@ -93,47 +93,47 @@ effect can be described by writing the name of the effect
 in a subscript, $t_{effect}$.
 
 \item
-A polymorphic function, {\mono result}, of type $t \rightarrow t_{effect}$
+A polymorphic function, \texttt{result}, of type $t \rightarrow t_{effect}$
 which takes a value of the base type $t$ and lifts it to a value of the
 monadic type by adding structure corresponding to a pure computation
 with no effect.
 
 \item
-A second polymorphic function, {\mono bind}, of type
+A second polymorphic function, \texttt{bind}, of type
 $t_{effect} \rightarrow (t \rightarrow t'_{effect}) \rightarrow t'_{effect}$.
-{\mono bind} combines a monadic value with a function from the base type to
+\texttt{bind} combines a monadic value with a function from the base type to
 a new monadic value, combining the effects of both.  The values of the base
-type in the result of {\mono bind} are computed from the values of the base type
+type in the result of \texttt{bind} are computed from the values of the base type
 in the input value by applying the input function.  The effect structure
-of the result of {\mono bind} is the composition of the effect structure
+of the result of \texttt{bind} is the composition of the effect structure
 of the input value with the effect structure of the result of the function
 application.
 \end{enumerate}
 
-Since the {\mono bind} function only composes existing effect structures
-and the {\mono result} function lifts a value purely -- that is without
+Since the \texttt{bind} function only composes existing effect structures
+and the \texttt{result} function lifts a value purely -- that is without
 adding an effect -- any useful monad (other than the identity monad)
 will be augmented with additional functions which create monadic
-values with effects.  Unlike {\mono result} and {\mono bind}, the names
+values with effects.  Unlike \texttt{result} and \texttt{bind}, the names
 and types of these functions are not standardized and will vary
 between different monads.
 
 \subsection{Monad Laws}
 
-The {\mono result} and {\mono bind} functions together describe a system
+The \texttt{result} and \texttt{bind} functions together describe a system
 for composing computations with effects.  To ensure that a monad
 implements a consistent effect system, the monad should obey three laws:
 
 \begin{enumerate}
-\item {\mono bind (result x) f $\equiv$ f x}
-\item {\mono bind m result $\equiv$ m}
-\item {\mono bind (bind m f) g $\equiv$ bind m ($\lambda$x $\rightarrow$ bind (f x) g)}
+\item \texttt{bind (result x) f $\equiv$ f x}
+\item \texttt{bind m result $\equiv$ m}
+\item \texttt{bind (bind m f) g $\equiv$ bind m ($\lambda$x $\rightarrow$ bind (f x) g)}
 \end{enumerate}
 
-The first law requires that {\mono result} is a left-identity with
-respect to {\mono bind}. The second law requires that {\mono result} is a
-right-identity with respect to {\mono bind}. The third law is a kind of
-associativity law for {\mono bind}.
+The first law requires that \texttt{result} is a left-identity with
+respect to \texttt{bind}. The second law requires that \texttt{result} is a
+right-identity with respect to \texttt{bind}. The third law is a kind of
+associativity law for \texttt{bind}.
 
 \subsection{Monad Transformers}
 
@@ -145,14 +145,14 @@ composition is not commutative, so the order in which transformers are
 applied in the stack affects the semantics of the combined monad.
 
 The identity monad does not add any effect structure to the base value
--- its {\mono return} function is the identity and its {\mono bind} is
+-- its \texttt{return} function is the identity and its \texttt{bind} is
 ordinary function application.  Any monad and its monad transformer
 are related through the identity monad, since the monad is equivalent
 to applying the monad transformer to the identity monad.
 
 \section{Monads in Haskell}
 
-\def \hbind {\mono >\mono >\mono =}
+\newcommand{\hbind}[0]{\texttt{>>=}}
 
 In the pure, non-strict, statically-typed functional language Haskell
 monads are pervasive \citep{awkward-squad,haskell98}.  Impure features
@@ -161,7 +161,7 @@ monads are used to model failure, nondeterminism, partiality, parsing,
 and numerous other effects.
 
 In Haskell a monad is represented by a constructor for the type of
-monadic values given the type of the base value, a {\mono return}
+monadic values given the type of the base value, a {\tt return}
 function for lifting values of the base type to the monadic type, and
 an infix binding combinator, \hbind, for composing a value of the
 monadic type with a function to create a new value of the monadic
@@ -179,18 +179,18 @@ class Monad m where
 \label{fig-Haskell-Monad-class}
 \end{figure}
 
-Haskell's {\mono return} function represents {\mono result} and
-\hbind \linebreak represents {\mono bind}.
+Haskell's {\tt return} function represents \texttt{result} and
+\hbind \linebreak represents \texttt{bind}.
 
-Haskell provides a special syntax, {\mono do}-notation, that provides
+Haskell provides a special syntax, {\tt do}-notation, that provides
 an imperative interface for describing monadic compuations that is
-easier to use than manually applying \hbind \ and {\mono return}
+easier to use than manually applying \hbind \ and {\tt return}
 to structure large monadic computations. Haskell also provides a
 library of standard monads and monad transformers, including
 transformers for working with state, continuations, failure,
 environments, logging and errors.  In addition, users can easily
 define their own monads and monad transformers. Both user and
-library monads work seamlessly with the {\mono do}-notation and
+library monads work seamlessly with the {\tt do}-notation and
 Haskell's other features for working with monads.
 
 \section{Monads in Scheme}
@@ -212,13 +212,13 @@ monads patterned after Haskell's monad libraries in its
 clojure.contrib.monads library \citep{clojure-monads1, clojure-monads2}.
 
 Monads are represented by structures with standard field names
-{\mono m-result} and {\mono m-bind} and the library provides a number of
+{\tt m-result} and {\tt m-bind} and the library provides a number of
 macros for working with them.
 
-The {\mono with-monad} macro takes a monad structure and a number of
-expressions as arguments and binds the {\mono m-bind} and {\mono
+The {\tt with-monad} macro takes a monad structure and a number of
+expressions as arguments and binds the {\tt m-bind} and {\tt
   m-result} fields of the monad structure to local names so that any
-occurence of {\mono m-bind} or {\mono m-result} in the expressions
+occurence of {\tt m-bind} or {\tt m-result} in the expressions
 will refer to the fields of the selected monad.  The expressions are
 said to be ``run in'' the selected monad.  Often monadic code can only
 be run in a single monad, but sometimes it is possible to write code
@@ -233,15 +233,15 @@ monad).  This definition:
            (m-result (second entry))
            m-zero))))
 \end{verbatim}
-shows a simple example of {\mono with-monad} used to run a computation
-in the {\mono maybe} monad.
+shows a simple example of {\tt with-monad} used to run a computation
+in the {\tt maybe} monad.
 
-The {\mono domonad} macro is used for monad comprehensions with a list
+The {\tt domonad} macro is used for monad comprehensions with a list
 of monadic bindings and a final expression.  Each of the bindings is
 evaluated in turn, making the value accessible to all later bindings
-and the final expression.  The final result of the {\mono domonad}
+and the final expression.  The final result of the {\tt domonad}
 comprehension is the value of the final expression returned using
-the monad's {\mono m-result} function.
+the monad's {\tt m-result} function.
 
 For example, the comprehension:
 \begin{verbatim}
@@ -258,9 +258,9 @@ is equivalent to the unsugared form:
         (m-result (:last-name record))))
 \end{verbatim}
 
-The {\mono defmonad} macro allows definition of user-defined named
+The {\tt defmonad} macro allows definition of user-defined named
 macros.  It is also used internally to define the monads supplied
-with the library, such as the {\mono maybe} monad.
+with the library, such as the {\tt maybe} monad.
 
 \begin{figure}
 \begin{center}
@@ -305,7 +305,6 @@ between defined values and undefined values, which are associated
 with a failure description.
 
 \begin{figure}
-\begin{center}
 \begin{verbatim}
 (defn interp [e]
   (cond
@@ -341,23 +340,26 @@ with a failure description.
                         "division by 0"))]
              r)))))
 \end{verbatim}
-\end{center}
 \caption{Interpreter for an arithmetic expression language}
 \label{fig-interp-0}
 \end{figure}
 
 The interpreter in Figure \ref{fig-interp-0} can be run in the error
-monad to evaluate simple arithmetic expressions.  For {\mono '(+ 2 2)}
-the interpreter returns {\mono (ok 4)}, but {\mono '(/ 12 0)} results in
-{\mono (fail ``division by 0'')}.
+monad to evaluate simple arithmetic expressions.  For {\tt '(+ 2 2)}
+the interpreter returns {\tt (ok 4)}, but {\tt '(/ 12 0)} results in
+{\tt (fail ``division by 0'')}.
 
 \subsection{Adding an Environment}
 
 To extend the interpreter with an environment of bindings an
 environment monad transformer is added to the monad stack.  The
-combined {\mono (env-t error)} monad provides both partiality and
-binding environment effects.  Adding a clause to the {\mono cond} block
-to handle symbols:
+combined {\tt (env-t error)} monad provides both partiality and
+binding environment effects. Adding a clause to the interpreter
+to handle variable lookup (as in Figure \ref{fig-interp-1}), 
+allows the interpreter to be run with an environment of immutable 
+bindings. 
+
+\begin{figure} 
 \begin{verbatim}
 (symbol? e)
   (domonad interp-monad
@@ -366,12 +368,17 @@ to handle symbols:
               (report-error (undef-msg e)))]
      r)
 \end{verbatim}
-allows the interpreter to be run with an environment of constant
-bindings.  For example,
+\caption{Adding variables to the interpreter}
+\label{fig-interp-1}
+\end{figure}
+
+\pagebreak
+
+For example,
 \begin{verbatim}
 (run-with-env {'pi 3.14159} (interp '(* 2 pi)))
 \end{verbatim}
-yields
+yields 
 \begin{verbatim}
 (ok 6.28318)
 \end{verbatim}
@@ -396,10 +403,10 @@ additional monads to the transformer stack. For example, adding a
 state monad to the transformer stack allows the language to be
 extended with a language fragment for creating, reading and writing
 mutable reference cells. Including the continuation monad allows the
-implementation of {\mono callcc} in the interpreter.  The ordering of
+implementation of {\tt callcc} in the interpreter.  The ordering of
 the continuation monad transformer and the state monad transformer
 within the transformer stack determines whether or not calling a
-continuation captured with {\mono callcc} resets or preserves the
+continuation captured with {\tt callcc} resets or preserves the
 state.  A logging monad can optionally be incorporated into the
 transformer stack to enable tracing of the interpreter execution.
 
