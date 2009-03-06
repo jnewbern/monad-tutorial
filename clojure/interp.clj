@@ -1,5 +1,5 @@
 (ns monad-tutorial
-  (:use clojure.contrib.monads))
+  (:use newmonads))
 
 (defn trace [s x] (do (prn s x) x))
 
@@ -83,19 +83,6 @@
 ; eval-cont-t unwraps a continuation value by providing
 ; a default continuation (the lower-level m-result)
 (defn eval-cont-t [m mv] (with-monad m (mv m-result)))
-
-; state monad transformer
-(defn state-t
-   "Monad transformer that adds local state to an existing monad"
-   [m]
-   (monad [m-result (fn m-result-state-t [v]
-                       (with-monad m (fn [s] (m-result (list v s)))))
-           m-bind   (fn m-bind-state-t [mv f]
-                       (fn [s]
-                          (domonad m
-                            [[v ss] (mv s)
-                              r ((f v) ss)]
-                            r)))]))
 
 (defn lift-state-t [m]
    (fn [mv]
