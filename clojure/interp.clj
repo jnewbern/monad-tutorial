@@ -3,28 +3,6 @@
 
 (defn trace [s x] (do (prn s x) x))
 
-
-
-; continuation monad transformer
-; in a dynamically typed setting this seems to also be
-; the continuation monad itself
-(defn cont-t
-  "Monad transformer that adds continuations to an existing monad"
-  [m]
-  (monad [m-result (fn m-result-cont-t [v]
-                      (fn [k] (k v)))
-          m-bind   (fn m-bind-cont-t [mv f]
-                     (fn [c] (mv (fn [a] ((f a) c)))))]))
-
-(defn lift-cont-t [m]
-   (fn [mv] (with-monad m (partial m-bind mv))))
-
-(defn callcc [f] (fn [c] ((f (fn [a] (fn [_] (c a)))) c)))
-
-; eval-cont-t unwraps a continuation value by providing
-; a default continuation (the lower-level m-result)
-(defn eval-cont-t [m mv] (with-monad m (mv m-result)))
-
 (defn lift-state-t [m]
    (fn [mv]
      (fn [s]
@@ -74,17 +52,17 @@
            r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
            r))))
 
-; lift callcc over a state monad
+; lift call-cc over a state monad
 ; restores state when calling continuation
-(defn callcc-state-t [callcc-m]
+(defn call-cc-state-t [call-cc-m]
    (fn [f] ; function expecting a continuation
-     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
+     (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
 
-; state-preserving version of callcc
+; state-preserving version of call-cc
 ; equivalent to (cont-t (state-t)) instead of (state-t (cont-t))
-(defn alt-callcc-state-t [callcc-m]
+(defn alt-call-cc-state-t [call-cc-m]
    (fn [f] ; function expecting a continuation
-     (fn [s] (callcc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
+     (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
 
 (defn local-env-state-t [local-env-m]
   (fn [f mv]
@@ -93,9 +71,9 @@
 (def interp-local-env
    (local-env-state-t (cont-local-env (env-t error-m) local-env (capture-env-t error-m))))
 
-(def interp-callcc (callcc-state-t callcc))
+(def interp-call-cc (call-cc-state-t call-cc))
 
-(def interp-alt-callcc (alt-callcc-state-t callcc))
+(def interp-alt-call-cc (alt-call-cc-state-t call-cc))
 
 ; closures
 (defstruct closure :env :body)
@@ -191,18 +169,18 @@
 				      news (m-result (assoc s :cells newv))
 				      _    (interp-put-state news)]
 				     nil)
-                  (= t 'callcc) (domonad interp-monad
+                  (= t 'call-cc) (domonad interp-monad
                                   [ce interp-capture-env
-                                   r (interp-callcc
+                                   r (interp-call-cc
                                        (fn [cont]
                                          (let [new-cont (interp-wrap-cont interp cont)
                                                new-env (add-to-env ce (first args) new-cont)
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
                                    r)
-                  (= t 'alt-callcc) (domonad interp-monad
+                  (= t 'alt-call-cc) (domonad interp-monad
                                       [ce interp-capture-env
-                                       r (interp-alt-callcc
+                                       r (interp-alt-call-cc
                                            (fn [cont]
                                              (let [new-cont (interp-wrap-cont interp cont)
                                                    new-env  (add-to-env ce (first args) new-cont)
@@ -281,22 +259,22 @@
 (run-interp '((lambda-n x 5) (/ 5 0)))
 
 ; success 3
-(run-interp '(callcc exit (+ 5 (exit 3))))
+(run-interp '(call-cc exit (+ 5 (exit 3))))
 
 ; success 14
-(run-interp '(+ (callcc exit (+ 7 (exit 9)))
-                (+ 2 (callcc exit (- 2 (exit 3))))))
+(run-interp '(+ (call-cc exit (+ 7 (exit 9)))
+                (+ 2 (call-cc exit (- 2 (exit 3))))))
 
 ; success 25
-(run-interp '(* (callcc exit (/ (exit 5) 0))
+(run-interp '(* (call-cc exit (/ (exit 5) 0))
                5))
 
 ; success 10
-(run-interp '((callcc exit-fn (lambda-v n (* n 2))) 5))
+(run-interp '((call-cc exit-fn (lambda-v n (* n 2))) 5))
 
-; continuation escaping callcc
+; continuation escaping call-cc
 ; success 30
-(run-interp '((callcc exit-fn
+(run-interp '((call-cc exit-fn
                 (lambda-v n
                    (+ n
                      (exit-fn (lambda-v r (* n (+ r 1))))))) 5))
@@ -318,21 +296,21 @@
 ; success 2
 (run-interp '(+ (do tick 1) (read time)))
 
-; demonstrate callcc resets the state
+; demonstrate call-cc resets the state
 ; success 4 (not 6)
 (run-interp
   '(do tick
-       (+ (callcc exit
+       (+ (call-cc exit
             (do tick
                 tick
                 ((lambda-v t0 (exit t0)) (read time))))
            (read time))))
 
-; demonstrate alt-callcc preserves the state
+; demonstrate alt-call-cc preserves the state
 ; success 6 (not 4)
 (run-interp
   '(do tick
-       (+ (alt-callcc exit
+       (+ (alt-call-cc exit
             (do tick
                 tick
                 ((lambda-v t0 (exit t0)) (read time))))
