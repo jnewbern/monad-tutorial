@@ -319,6 +319,42 @@
 	  rc (f cc)]
       (rc c))))
 
+; error monad
+(defmonad error-m
+  "Monad describing computations with possible failures.
+   Values in the monad pair a status code with either a value
+   or a failure descriptor."
+  [m-result  (fn m-result-error [v]  (list 'ok v))
+   m-bind    (fn m-bind-error [mv f] (if (= 'ok (first mv))
+				         (f (second mv))
+					 mv))
+   ])
+
+(defn fail [err] (list 'fail err))
+
+(defn success? [mv] (= 'ok (first mv)))
+(defn failure? [mv] (not (success? mv)))
+
+(defn successful-value [mv] (if (success? mv) (second mv) 'nil))
+(defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
+
+; environment monad
+(defmonad env-m
+  "Monad which allows a computation to access
+   values from an environment"
+  [m-result (fn m-result-env [v]
+	      (fn [_] v))
+   m-bind   (fn m-bind-env [mv f]
+	      (fn [e] ((f (mv e)) e)))
+   ])
+
+(defn capture-env [e] e)
+
+(defn local-env [f mv]
+  (fn [e] (mv (f e))))
+
+(defn run-with-env [e mv]
+  (mv e))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -428,45 +464,7 @@
                          (do (println (str "final state: " (second v)))
                              (first v)))))
 
-; error monad
-
-(defmonad error-m
-  "Monad describing computations with possible failures.
-   Values in the monad pair a status code with either a value
-   or a failure descriptor."
-  [m-result  (fn m-result-error [v]  (list 'ok v))
-   m-bind    (fn m-bind-error [mv f] (if (= 'ok (first mv))
-				         (f (second mv))
-					 mv))
-   ])
-
-(defn fail [err] (list 'fail err))
-
-(defn success? [mv] (= 'ok (first mv)))
-(defn failure? [mv] (not (success? mv)))
-
-(defn successful-value [mv] (if (success? mv) (second mv) 'nil))
-(defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
-
-; environment monad
-
-(defmonad env-m
-  "Monad which allows a computation to access
-   values from an environment"
-  [m-result (fn m-result-env [v]
-	      (fn [_] v))
-   m-bind   (fn m-bind-env [mv f]
-	      (fn [e] ((f (mv e)) e)))
-   ])
-
-(defn capture-env [e] e)
-
-(defn local-env [f mv]
-  (fn [e] (mv (f e))))
-
-(defn run-with-env [e mv]
-  (mv e))
-
+; environment monad transformer
 (defn env-t
   "Monad transformer that adds an environment to an existing monad"
   [m]
