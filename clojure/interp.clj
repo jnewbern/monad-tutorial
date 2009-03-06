@@ -15,10 +15,6 @@
 
 (defn report-error [desc] (lift-error (fail desc)))
 
-(defn add-to-env [e k v] (assoc e k v))
-
-(defn interp-lookup [k] (lift-env (ask-env-t error-m k)))
-
 (def interp-capture-env (lift-env (capture-env-t error-m)))
 
 (def interp-get-state (get-state-t (cont-t (env-t error-m))))
@@ -33,6 +29,15 @@
 (def interp-call-cc (call-cc-state-t call-cc))
 
 (def interp-alt-call-cc (alt-call-cc-state-t call-cc))
+
+; interpreter environments
+
+(defn add-to-env [e k v] (assoc e k v))
+
+(defn ask-env-t [m k]
+  (domonad (env-t m) [e (capture-env-t m)] (second (find e k))))
+
+(defn interp-lookup [k] (lift-env (ask-env-t error-m k)))
 
 ; closures
 (defstruct closure :env :body)

@@ -461,9 +461,6 @@
 
 (defn capture-env [e] e)
 
-(defn ask-env [k]
-  (fn [e] (second (find e k))))
-
 (defn local-env [f mv]
   (fn [e] (mv (f e))))
 
@@ -485,9 +482,6 @@
   (fn [e] (with-monad m (m-result e))))
 
 (defn lift-env-t [mv] (fn [_] mv))
-
-(defn ask-env-t [m k]
-  (domonad (env-t m) [e (capture-env-t m)] (second (find e k))))
 
 ; continuation monad transformer
 ; in a dynamically typed setting this seems to also be
