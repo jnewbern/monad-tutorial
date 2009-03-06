@@ -506,3 +506,29 @@
 ; eval-cont-t unwraps a continuation value by providing
 ; a default continuation (the lower-level m-result)
 (defn eval-cont-t [m mv] (with-monad m (mv m-result)))
+
+;; ad-hoc lifting functions
+; rebuild local-env around a continuation monad transformer
+(defn cont-local-env [m local-env-m capture-env-m]
+   (fn [f mv]
+     (fn [c]
+       (domonad m
+          [e capture-env-m
+           r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
+           r))))
+
+; lift call-cc over a state monad
+; restores state when calling continuation
+(defn call-cc-state-t [call-cc-m]
+   (fn [f] ; function expecting a continuation
+     (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
+
+; state-preserving version of call-cc
+; equivalent to (cont-t (state-t)) instead of (state-t (cont-t))
+(defn alt-call-cc-state-t [call-cc-m]
+   (fn [f] ; function expecting a continuation
+     (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
+
+(defn local-env-state-t [local-env-m]
+  (fn [f mv]
+    (fn [s] (local-env-m f (mv s)))))
