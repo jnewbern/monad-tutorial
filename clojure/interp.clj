@@ -3,25 +3,6 @@
 
 (defn trace [s x] (do (prn s x) x))
 
-; error monad
-
-(defmonad error
-  "Monad describing computations with possible failures.
-   Values in the monad pair a status code with either a value
-   or a failure descriptor."
-  [m-result  (fn m-result-error [v]  (list 'ok v))
-   m-bind    (fn m-bind-error [mv f] (if (= 'ok (first mv))
-				         (f (second mv))
-					 mv))
-   ])
-
-(defn fail [err] (list 'fail err))
-
-(defn success? [mv] (= 'ok (first mv)))
-(defn failure? [mv] (not (success? mv)))
-
-(defn successful-value [mv] (if (success? mv) (second mv) 'nil))
-(defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
 
 ; environment monad
 
@@ -102,11 +83,11 @@
 
 ; interpreter
 
-(def interp-monad (state-t (cont-t (env-t error))))
+(def interp-monad (state-t (cont-t (env-t error-m))))
 
-(def lift-cont (lift-state-t (cont-t (env-t error))))
+(def lift-cont (lift-state-t (cont-t (env-t error-m))))
 
-(def lift-env (comp lift-cont (lift-cont-t (env-t error))))
+(def lift-env (comp lift-cont (lift-cont-t (env-t error-m))))
 
 (def lift-error (comp lift-env lift-env-t))
 
@@ -114,13 +95,13 @@
 
 (defn add-to-env [e k v] (assoc e k v))
 
-(defn interp-lookup [k] (lift-env (ask-env-t error k)))
+(defn interp-lookup [k] (lift-env (ask-env-t error-m k)))
 
-(def interp-capture-env (lift-env (capture-env-t error)))
+(def interp-capture-env (lift-env (capture-env-t error-m)))
 
-(def interp-get-state (get-state-t (cont-t (env-t error))))
+(def interp-get-state (get-state-t (cont-t (env-t error-m))))
 
-(def interp-put-state (put-state-t (cont-t (env-t error))))
+(def interp-put-state (put-state-t (cont-t (env-t error-m))))
 
 (defstruct interp-state :cells)
 
@@ -150,7 +131,7 @@
     (fn [s] (local-env-m f (mv s)))))
 
 (def interp-local-env
-   (local-env-state-t (cont-local-env (env-t error) local-env (capture-env-t error))))
+   (local-env-state-t (cont-local-env (env-t error-m) local-env (capture-env-t error-m))))
 
 (def interp-callcc (callcc-state-t callcc))
 
@@ -292,12 +273,12 @@
 
 (def initial-state (struct interp-state (vector 0)))
 
-(def run-interp-state (eval-state-t (cont-t (env-t error))))
+(def run-interp-state (eval-state-t (cont-t (env-t error-m))))
 
 (defn run-interp [exp]
       (prn 'run-interp exp)
       (prn (run-with-env initial-env
-             (eval-cont-t (env-t error)
+             (eval-cont-t (env-t error-m)
                (run-interp-state (interp exp) initial-state)))))
 
 ; success: 3

@@ -410,3 +410,23 @@
 			 (fn [s]
 			   (apply m-plus (map #(% s) stms))))))
           ]))
+
+; error monad
+
+(defmonad error-m
+  "Monad describing computations with possible failures.
+   Values in the monad pair a status code with either a value
+   or a failure descriptor."
+  [m-result  (fn m-result-error [v]  (list 'ok v))
+   m-bind    (fn m-bind-error [mv f] (if (= 'ok (first mv))
+				         (f (second mv))
+					 mv))
+   ])
+
+(defn fail [err] (list 'fail err))
+
+(defn success? [mv] (= 'ok (first mv)))
+(defn failure? [mv] (not (success? mv)))
+
+(defn successful-value [mv] (if (success? mv) (second mv) 'nil))
+(defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
