@@ -430,3 +430,44 @@
 
 (defn successful-value [mv] (if (success? mv) (second mv) 'nil))
 (defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
+
+; environment monad
+
+(defmonad env-m
+  "Monad which allows a computation to access
+   values from an environment"
+  [m-result (fn m-result-env [v]
+	      (fn [_] v))
+   m-bind   (fn m-bind-env [mv f]
+	      (fn [e] ((f (mv e)) e)))
+   ])
+
+(defn capture-env [e] e)
+
+(defn ask-env [k]
+  (fn [e] (second (find e k))))
+
+(defn local-env [f mv]
+  (fn [e] (mv (f e))))
+
+(defn run-with-env [e mv]
+  (mv e))
+
+(defn env-t
+  "Monad transformer that adds an environment to an existing monad"
+  [m]
+  (monad [m-result (with-monad m
+		     (fn m-result-env-t [v]
+		       (fn [_] (m-result v))))
+	  m-bind   (with-monad m
+		     (fn m-bind-env-t [mv f]
+		       (fn [e] (m-bind (run-with-env e mv)
+				       (fn [x] ((f x) e))))))]))
+
+(defn capture-env-t [m]
+  (fn [e] (with-monad m (m-result e))))
+
+(defn lift-env-t [mv] (fn [_] mv))
+
+(defn ask-env-t [m k]
+  (domonad (env-t m) [e (capture-env-t m)] (second (find e k))))
