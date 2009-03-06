@@ -3,22 +3,6 @@
 
 (defn trace [s x] (do (prn s x) x))
 
-(defn lift-state-t [m]
-   (fn [mv]
-     (fn [s]
-        (domonad m [v mv] (list v s)))))
-
-(defn get-state-t [m]
-    (fn [s] (domonad m [] (list s s))))
-
-(defn put-state-t [m]
-    (fn [ss] (fn [s] (domonad m [] (list nil ss)))))
-
-(defn eval-state-t [m]
-   (fn [mv s] (domonad m [v (mv s)]
-                         (do (println (str "final state: " (second v)))
-                             (first v)))))
-
 ; interpreter
 
 (def interp-monad (state-t (cont-t (env-t error-m))))
