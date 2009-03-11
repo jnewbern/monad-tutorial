@@ -426,6 +426,11 @@
 		       (m-bind mv
 			       (fn [xs]
 				 (apply concat (map f xs))))))
+	  m-base   m
+	  t-base   (fn t-base-sequence-t [mv]
+		     (with-monad m
+		       (m-bind mv (fn [v] (m-result (list v))))))
+	  m-fail   (fn [desc] (domonad m [] (list)))
 	  ]))
 
 ;; Contributed by Jim Duey
