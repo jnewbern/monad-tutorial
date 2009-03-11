@@ -27,12 +27,16 @@
    [operations]
    `(let [~'m-bind   ::undefined
 	  ~'m-result ::undefined
+	  ~'m-base   ::undefined
+	  ~'t-base   ::undefined
 	  ~'m-zero   ::undefined
 	  ~'m-plus   ::undefined
 	  ~'m-fail   ::undefined
 	  ~@operations]
       {:m-result ~'m-result
        :m-bind ~'m-bind 
+       :m-base ~'m-base
+       :t-base ~'t-base
        :m-zero ~'m-zero
        :m-plus ~'m-plus
        :m-fail ~'m-fail}))
@@ -95,6 +99,8 @@
    [name & exprs]
    `(let [~'m-bind   (:m-bind ~name)
 	  ~'m-result (:m-result ~name)
+	  ~'m-base   (:m-base ~name)
+	  ~'t-base   (:t-base ~name)
 	  ~'m-zero   (:m-zero ~name)
 	  ~'m-plus   (:m-plus ~name)
 	  ~'m-fail   (:m-fail ~name)]
