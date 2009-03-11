@@ -354,6 +354,9 @@
 (defn error-desc       [mv] (if (failure? mv) (second mv) 'nil))
 
 ; environment monad
+(defn local-env [f mv]
+  (fn [e] (mv (f e))))
+
 (defmonad env-m
   "Monad which allows a computation to access
    values from an environment"
@@ -361,12 +364,10 @@
 	      (fn [_] v))
    m-bind   (fn m-bind-env [mv f]
 	      (fn [e] ((f (mv e)) e)))
+   m-capture-env 
+            (fn m-capture-env [e] e)
+   m-local-env local-env 
    ])
-
-(defn capture-env [e] e)
-
-(defn local-env [f mv]
-  (fn [e] (mv (f e))))
 
 (defn run-with-env [e mv]
   (mv e))
@@ -525,12 +526,22 @@
 	  m-bind   (with-monad m
 		     (fn m-bind-env-t [mv f]
 		       (fn [e] (m-bind (run-with-env e mv)
-				       (fn [x] ((f x) e))))))]))
-
-(defn capture-env-t [m]
-  (fn [e] (with-monad m (m-result e))))
-
-(defn lift-env-t [mv] (fn [_] mv))
+				       (fn [x] ((f x) e))))))
+	  m-base   m
+	  t-base   (fn [mv] (fn [_] mv))
+	  m-capture-env
+	           (with-monad m
+		      (fn [e] (m-result e)))
+	  m-local-env local-env
+	  m-get    (with-monad m
+                      (if (= ::undefined m-get)
+			::undefined
+			(t-base m-get)))
+	  m-put    (with-monad m
+                      (if (= ::undefined m-put)
+                        ::undefined
+			(fn [ss] (t-base (m-put ss)))))
+	  ]))
 
 ; continuation monad transformer
 ; in a dynamically typed setting this seems to also be
