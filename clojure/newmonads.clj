@@ -31,6 +31,8 @@
 	  ~'t-base   ::undefined
 	  ~'m-zero   ::undefined
 	  ~'m-plus   ::undefined
+	  ~'m-get    ::undefined
+	  ~'m-put    ::undefined
 	  ~'m-fail   ::undefined
 	  ~@operations]
       {:m-result ~'m-result
@@ -39,6 +41,8 @@
        :t-base ~'t-base
        :m-zero ~'m-zero
        :m-plus ~'m-plus
+       :m-get  ~'m-get
+       :m-put  ~'m-put
        :m-fail ~'m-fail}))
 
 (defmacro defmonad
@@ -253,6 +257,15 @@
     ])
 
 ; State monad
+(defn update-state [f]
+  (fn [s] (list s (f s))))
+
+(defn set-state [s]
+  (update-state (fn [_] s)))
+
+(defn fetch-state []
+  (update-state identity))
+
 (defmonad state-m
    "Monad describing stateful computations. The monadic values have the
     structure (fn [old-state] (list result new-state))."
@@ -262,16 +275,9 @@
 	        (fn [s]
 		  (let [[v ss] (mv s)]
 		    ((f v) ss))))
+    m-get     fetch-state
+    m-put     set-state
    ])
-
-(defn update-state [f]
-  (fn [s] (list s (f s))))
-
-(defn set-state [s]
-  (update-state (fn [_] s)))
-
-(defn fetch-state []
-  (update-state identity))
 
 ; Writer monad
 (defn writer-m
@@ -433,7 +439,25 @@
 	  m-fail   (fn [desc] (domonad m [] (list)))
 	  ]))
 
-;; Contributed by Jim Duey
+; state monad transformer
+; based on a transformer written by Jim Duey
+(defn lift-state-t [m]
+   (fn [mv]
+     (fn [s]
+        (domonad m [v mv] (list v s)))))
+
+; lift call-cc over a state monad
+; restores state when calling continuation
+(defn call-cc-state-t [call-cc-m]
+   (fn [f] ; function expecting a continuation
+     (fn [s]
+       (call-cc-m
+	(fn [c]
+	  ((f (fn [v]
+		(fn [_]
+		  (c (list v s)))))
+	   s))))))
+
 (defn state-t
   "Monad transformer that transforms a monad m into a monad of stateful
   computations that have the base monad type as their result."
@@ -448,6 +472,31 @@
                          (m-bind (stm s)
                                  (fn [[v ss]]
                                    ((f v) ss))))))
+	  m-base   m
+	  t-base   (lift-state-t m)
+	  m-get    (fn [s] (domonad m [] (list s s)))
+	  m-put    (fn [s] (fn [ss] (domonad m [] (list nil ss))))
+	  m-fail   (with-monad m
+                     (if (= ::undefined m-fail)
+                       ::undefined 
+                       (fn [desc] (t-base (m-fail desc)))))
+;	  m-capture-env 
+;                   (with-monad m
+;                     (if (= ::undefined m-capture-env)
+;		       ::undefined
+;		       (t-base m-capture-env)))
+;	  m-local-env
+;                   (with-monad m
+;                     (if (= ::undefined m-local-env)
+;		       ::undefined
+;		       (fn [f mv]
+;			 (fn [s]
+;			   (m-local-env f (mv s))))))
+;	  m-call-cc
+;	           (with-monad m
+;		     (if (= ::undefined m-call-cc)
+;		       ::undefined
+;		       (call-cc-state-t m-call-cc)))
           m-zero   (with-monad m
                      (if (= ::undefined m-zero)
 		       ::undefined
@@ -460,18 +509,6 @@
 			 (fn [s]
 			   (apply m-plus (map #(% s) stms))))))
           ]))
-
-; state monad utility functions
-(defn lift-state-t [m]
-   (fn [mv]
-     (fn [s]
-        (domonad m [v mv] (list v s)))))
-
-(defn get-state-t [m]
-    (fn [s] (domonad m [] (list s s))))
-
-(defn put-state-t [m]
-    (fn [ss] (fn [s] (domonad m [] (list nil ss)))))
 
 (defn eval-state-t [m]
    (fn [mv s] (domonad m [v (mv s)]
@@ -523,18 +560,8 @@
            r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
            r))))
 
-; lift call-cc over a state monad
-; restores state when calling continuation
-(defn call-cc-state-t [call-cc-m]
-   (fn [f] ; function expecting a continuation
-     (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [_] (c (list v s))))) s))))))
-
 ; state-preserving version of call-cc
 ; equivalent to (cont-t (state-t)) instead of (state-t (cont-t))
 (defn alt-call-cc-state-t [call-cc-m]
    (fn [f] ; function expecting a continuation
      (fn [s] (call-cc-m (fn [c] ((f (fn [v] (fn [ss] (c (list v ss))))) s))))))
-
-(defn local-env-state-t [local-env-m]
-  (fn [f mv]
-    (fn [s] (local-env-m f (mv s)))))
