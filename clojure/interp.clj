@@ -3,6 +3,161 @@
 
 (defn trace [s x] (do (prn s x) x))
 
+; ----------------------------------------------------------------------
+; Interpreter scaffolding
+
+; This function creates an interpreter from a set of predicates
+; and actions in a given monad.
+;
+; It returns a function which takes an expression and tests it
+; against each of the predicates.  When a match is found, the
+; matching action is executed on the expression in the given monad.
+; If no match is found, the supplied default-action is used.
+; Predicates take an expression argument and return true or false.
+; Actions take a monad, an interpreter function for recursion,
+; and an expression and they return a value in the supplied monad.
+;
+; Arguments:
+;   monad          - the monad structure to execute the interpeter in
+;   parts          - a list of lists of (predicate,action) pairs to
+;                    attempt to match the interpreted expression
+;   default-action - an action to use if no match is found in parts
+;
+; Returns:
+;   a function taking an expression to its interpeted form in the
+;   given monad
+(defn make-interp [monad parts default-action]
+  (let [ part-list  (mapcat identity parts)
+         check-part (fn [e part] ((first part) e))
+         interp     (fn [rec e]
+		      (let [ match  (drop-while (complement (partial check-part e)) part-list)
+			     action (if (nil? match)
+				        default-action
+				        (second (first match)))
+			   ]
+		        (action monad (partial rec rec) e)))
+	]
+    (partial interp interp)))
+
+
+; ----------------------------------------------------------------------
+; Definitions of language fragments
+
+
+; A simple arithmetic language supporting +,-,* and / of numeric literals.
+(defn arith-lang [report-error-fn]
+  [ ; literal numbers
+    [ (fn [e] (number? e))
+    , (fn [m _ e] (domonad m [] e))
+    ]
+    ; binary addition operator
+    [ (fn [e] (and (seq? e) (= (first e) '+)))
+    , (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  x    (rec (first args))
+		  y    (rec (second args))]
+		 (+ x y)))
+    ]
+    ; binary subtraction operator
+    [ (fn [e] (and (seq? e) (= (first e) '-)))
+    , (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  x    (rec (first args))
+		  y    (rec (second args))]
+		 (- x y)))
+    ]
+    ; binary multiplication operator
+    [ (fn [e] (and (seq? e) (= (first e) '*)))
+    , (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  x    (rec (first args))
+		  y    (rec (second args))]
+		 (* x y)))
+    ]
+    ; division operator
+    [ (fn [e] (and (seq? e) (= (first e) '/)))
+    , (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  x    (rec (first args))
+		  y    (rec (second args))
+		  r    (if (and (number? y) (not= 0 y))
+			 (m-result (/ x y))
+			 (report-error-fn "division by 0"))]
+		 r))
+    ]
+  ])
+
+
+; A language fragment supporting symbol lookup in an environment.
+(defn environment-lang [report-error-fn env-lookup-fn]
+  [ ; symbol lookup
+    [ (fn [e] (symbol? e))
+    , (fn [m rec e]
+	(domonad m
+		 [v (env-lookup-fn e)
+		  r (if v
+		      (rec v)
+		      (report-error-fn (str "undefined variable " e)))]
+		 r))
+    ]
+
+  ])
+
+
+; A language fragment supporting function abstraction
+
+; A language fragment for mutable reference cells
+
+; A language fragment for continuations
+
+; ----------------------------------------------------------------------
+; Tests
+
+; Create an interpreter using just the arithmetic language fragment
+; and run a few test expressions.
+
+(defn fail-bad-token [m _ e]
+  (with-monad m (fail (str "bad-token at " (pr-str e)))))
+
+(def arith-interp (make-interp error-m [(arith-lang fail)] fail-bad-token))
+
+(prn (arith-interp '(+ 3 1)))
+(prn (arith-interp '(/ (+ 4 1) (- 12 (* 3 4)))))
+(prn (arith-interp '(/ (+ 4 1) (- 12 (foo 3 4)))))
+
+
+; Create an interpreter using the arithmetic language fragment and
+; an environment of symbols and run a few tests.
+
+(defn fail-in-env [desc] (lift-env-t (fail desc)))
+
+(defn lookup-in-env [name]
+  (domonad (env-t error-m)
+	   [e (capture-env-t error-m)]
+	   (second (find e name))))
+
+(defn fail-bad-token-in-env [m _ e]
+  (lift-env-t (with-monad m (fail (str "bad-token at " (pr-str e))))))
+
+(defn arith-env-interp [symbol-environment]
+     (let [ monad     (env-t error-m)
+            parts     [ (arith-lang fail-in-env)
+		      , (environment-lang fail-in-env lookup-in-env)
+		      ]
+	    otherwise fail-bad-token-in-env
+	    interp    (make-interp monad parts otherwise)
+	  ]
+       (fn [e] (run-with-env symbol-environment (interp e)))))
+
+(prn ((arith-env-interp {'pi 3.14159}) '(* 2 pi)))
+(prn ((arith-env-interp {'x 42, 'y 6}) '(/ x y)))
+(prn ((arith-env-interp {'x 7, 'y 21}) '(/ 110 (- y (* 3 x)))))
+
+; ----------------------------------------------------------------------
 ; interpreter
 
 (def interp-monad (state-t (cont-t (env-t error-m))))
