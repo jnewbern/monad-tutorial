@@ -35,6 +35,7 @@
 	  ~'m-put    ::undefined
 	  ~'m-capture-env ::undefined
 	  ~'m-local-env ::undefined
+	  ~'m-call-cc ::undefined
 	  ~'m-fail   ::undefined
 	  ~@operations]
       {:m-result ~'m-result
@@ -47,6 +48,7 @@
        :m-put  ~'m-put
        :m-capture-env ~'m-capture-env
        :m-local-env ~'m-local-env
+       :m-call-cc ~'m-call-cc
        :m-fail ~'m-fail}))
 
 (defn when-defined [op new-val]
@@ -120,6 +122,7 @@
 	  ~'m-put    (:m-put ~name)
 	  ~'m-capture-env (:m-capture-env ~name)
 	  ~'m-local-env (:m-local-env ~name)
+	  ~'m-call-cc (:m-call-cc ~name)
 	  ~'m-fail   (:m-fail ~name)]
       (do ~@exprs)))
 
@@ -503,10 +506,10 @@
 		       (fn [f mv]
 			 (fn [s]
 			   (m-local-env f (mv s))))))
-;	  m-call-cc
-;	           (with-monad m
-;		     (when-defined m-call-cc
-;		       (call-cc-state-t m-call-cc)))
+	  m-call-cc
+	           (with-monad m
+		     (when-defined m-call-cc
+		       (call-cc-state-t m-call-cc)))
           m-zero   (with-monad m
                      (when-defined m-zero
 		       (t-base m-zero)))
@@ -569,6 +572,7 @@
                      (fn [c] (mv (fn [a] ((f a) c)))))
 	  m-base   m
 	  t-base   (lift-cont-t m)
+	  m-call-cc call-cc
 	  m-get   (with-monad m
 		     (when-defined m-get
 		       (t-base m-get)))
