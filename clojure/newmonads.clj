@@ -126,6 +126,14 @@
 	  ~'m-fail   (:m-fail ~name)]
       (do ~@exprs)))
 
+(defmacro with-base-monad
+   "Evaluates an expression within the interior monad of a 
+    transformed monad and then lifts the result to the 
+    combined monad"
+    [name & exprs]
+    `(with-monad ~name
+       (~'t-base (with-monad ~'m-base ~@exprs))))
+ 
 (defmacro domonad
    "Monad comprehension. Takes the name of a monad, a vector of steps
     given as binding-form/monadic-expression pairs, and a result value
