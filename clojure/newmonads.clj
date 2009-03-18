@@ -542,24 +542,9 @@
 	  ]))
 
 ; continuation monad transformer
-; in a dynamically typed setting this seems to also be
-; the continuation monad itself
-(defn cont-t
-  "Monad transformer that adds continuations to an existing monad"
-  [m]
-  (monad [m-result (fn m-result-cont-t [v]
-                      (fn [k] (k v)))
-          m-bind   (fn m-bind-cont-t [mv f]
-                     (fn [c] (mv (fn [a] ((f a) c)))))]))
-
 (defn lift-cont-t [m]
    (fn [mv] (with-monad m (partial m-bind mv))))
 
-; eval-cont-t unwraps a continuation value by providing
-; a default continuation (the lower-level m-result)
-(defn eval-cont-t [m mv] (with-monad m (mv m-result)))
-
-;; ad-hoc lifting functions
 ; rebuild local-env around a continuation monad transformer
 (defn cont-local-env [m local-env-m capture-env-m]
    (fn [f mv]
@@ -568,6 +553,28 @@
           [e capture-env-m
            r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
            r))))
+
+(defn cont-t
+  "Monad transformer that adds continuations to an existing monad"
+  [m]
+  (monad [m-result (fn m-result-cont-t [v]
+                      (fn [k] (k v)))
+          m-bind   (fn m-bind-cont-t [mv f]
+                     (fn [c] (mv (fn [a] ((f a) c)))))
+	  m-base   m
+	  t-base   (lift-cont-t m)
+	  m-get   (with-monad m
+		     (when-defined m-get
+		       (t-base m-get)))
+	  m-put   (with-monad m
+                     (when-defined m-put
+                       (fn [ss]
+                         (t-base (m-put ss)))))
+	  ]))
+
+; eval-cont-t unwraps a continuation value by providing
+; a default continuation (the lower-level m-result)
+(defn eval-cont-t [m mv] (with-monad m (mv m-result)))
 
 ; state-preserving version of call-cc
 ; equivalent to (cont-t (state-t)) instead of (state-t (cont-t))
