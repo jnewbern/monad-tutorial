@@ -514,7 +514,7 @@
 	  m-base   m
 	  t-base   (lift-state-t m)
 	  m-get    (fn [s] (domonad m [] (list s s)))
-	  m-put    (fn [s] (fn [ss] (domonad m [] (list nil ss))))
+	  m-put    (fn [ss] (fn [s] (domonad m [] (list nil ss))))
 	  m-fail   (when-defined m m-fail
 		     (fn [desc]
 		       (t-base (with-monad m (m-fail desc)))))
