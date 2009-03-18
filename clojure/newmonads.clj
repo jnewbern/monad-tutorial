@@ -570,6 +570,9 @@
 	  m-put    (with-monad m
                       (when-defined m-put
 			(fn [ss] (t-base (m-put ss)))))
+	  m-fail   (with-monad m
+		      (when-defined m-fail
+			(fn [desc] (t-base (m-fail desc)))))
 	  ]))
 
 ; continuation monad transformer
