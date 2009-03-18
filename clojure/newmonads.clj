@@ -45,6 +45,11 @@
        :m-put  ~'m-put
        :m-fail ~'m-fail}))
 
+(defn when-defined [op new-val]
+  (if (= op ::undefined)
+      ::undefined
+      new-val))
+ 
 (defmacro defmonad
    "Define a named monad by defining the monad operations. The definitions
     are written like bindings to the monad operations m-bind and
@@ -480,34 +485,27 @@
 	  m-get    (fn [s] (domonad m [] (list s s)))
 	  m-put    (fn [s] (fn [ss] (domonad m [] (list nil ss))))
 	  m-fail   (with-monad m
-                     (if (= ::undefined m-fail)
-                       ::undefined 
+                     (when-defined m-fail
                        (fn [desc] (t-base (m-fail desc)))))
 ;	  m-capture-env 
 ;                   (with-monad m
-;                     (if (= ::undefined m-capture-env)
-;		       ::undefined
+;                     (when-defined m-capture-env
 ;		       (t-base m-capture-env)))
 ;	  m-local-env
 ;                   (with-monad m
-;                     (if (= ::undefined m-local-env)
-;		       ::undefined
+;                     (when-defined m-local-env
 ;		       (fn [f mv]
 ;			 (fn [s]
 ;			   (m-local-env f (mv s))))))
 ;	  m-call-cc
 ;	           (with-monad m
-;		     (if (= ::undefined m-call-cc)
-;		       ::undefined
+;		     (when-defined m-call-cc
 ;		       (call-cc-state-t m-call-cc)))
           m-zero   (with-monad m
-                     (if (= ::undefined m-zero)
-		       ::undefined
-		       (fn [s]
-			 m-zero)))
+                     (when-defined m-zero
+		       (t-base m-zero)))
           m-plus   (with-monad m
-                     (if (= ::undefined m-plus)
-		       ::undefined
+                     (when-defined m-plus
 		       (fn [& stms]
 			 (fn [s]
 			   (apply m-plus (map #(% s) stms))))))
@@ -536,12 +534,10 @@
 		      (fn [e] (m-result e)))
 	  m-local-env local-env
 	  m-get    (with-monad m
-                      (if (= ::undefined m-get)
-			::undefined
+                      (when-defined m-get
 			(t-base m-get)))
 	  m-put    (with-monad m
-                      (if (= ::undefined m-put)
-                        ::undefined
+                      (when-defined m-put
 			(fn [ss] (t-base (m-put ss)))))
 	  ]))
 
