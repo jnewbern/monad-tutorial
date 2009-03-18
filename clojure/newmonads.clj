@@ -51,10 +51,10 @@
        :m-call-cc ~'m-call-cc
        :m-fail ~'m-fail}))
 
-(defn when-defined [op new-val]
-  (if (= op ::undefined)
+(defmacro when-defined [m op new-val]
+  `(if (= (with-monad ~m ~op) ::undefined)
       ::undefined
-      new-val))
+      ~new-val))
  
 (defmacro defmonad
    "Define a named monad by defining the monad operations. The definitions
@@ -515,28 +515,26 @@
 	  t-base   (lift-state-t m)
 	  m-get    (fn [s] (domonad m [] (list s s)))
 	  m-put    (fn [s] (fn [ss] (domonad m [] (list nil ss))))
-	  m-fail   (with-monad m
-                     (when-defined m-fail
-                       (fn [desc] (t-base (m-fail desc)))))
+	  m-fail   (when-defined m m-fail
+		     (fn [desc]
+		       (t-base (with-monad m (m-fail desc)))))
 	  m-capture-env
-                   (with-monad m
-                     (when-defined m-capture-env
-		       (t-base m-capture-env)))
+                   (when-defined m m-capture-env
+		       (t-base (with-monad m m-capture-env)))
 	  m-local-env
-                   (with-monad m
-                     (when-defined m-local-env
+                   (when-defined m m-local-env
+                     (with-monad m
 		       (fn [f mv]
 			 (fn [s]
 			   (m-local-env f (mv s))))))
 	  m-call-cc
-	           (with-monad m
-		     (when-defined m-call-cc
+	           (when-defined m m-call-cc
+		     (with-monad m
 		       (call-cc-state-t m-call-cc)))
-          m-zero   (with-monad m
-                     (when-defined m-zero
-		       (t-base m-zero)))
-          m-plus   (with-monad m
-                     (when-defined m-plus
+          m-zero   (when-defined m m-zero
+                     (t-base (with-monad m m-zero)))
+          m-plus   (when-defined m m-plus
+                     (with-monad m
 		       (fn [& stms]
 			 (fn [s]
 			   (apply m-plus (map #(% s) stms))))))
@@ -564,15 +562,14 @@
 	           (with-monad m
 		      (fn [e] (m-result e)))
 	  m-local-env local-env
-	  m-get    (with-monad m
-                      (when-defined m-get
-			(t-base m-get)))
-	  m-put    (with-monad m
-                      (when-defined m-put
-			(fn [ss] (t-base (m-put ss)))))
-	  m-fail   (with-monad m
-		      (when-defined m-fail
-			(fn [desc] (t-base (m-fail desc)))))
+	  m-get    (when-defined m m-get
+                      (t-base (with-monad m m-get)))
+	  m-put    (when-defined m m-put
+                     (fn [ss]
+		       (t-base (with-monad m (m-put ss)))))
+	  m-fail   (when-defined m m-fail
+		    (fn [desc]
+		      (t-base (with-monad m (m-fail desc)))))
 	  ]))
 
 ; continuation monad transformer
@@ -598,22 +595,18 @@
 	  m-base   m
 	  t-base   (lift-cont-t m)
 	  m-call-cc call-cc
-	  m-get   (with-monad m
-		     (when-defined m-get
-		       (t-base m-get)))
-	  m-put   (with-monad m
-                     (when-defined m-put
-                       (fn [ss]
-                         (t-base (m-put ss)))))
+	  m-get   (when-defined m m-get
+		     (t-base (with-monad m m-get)))
+	  m-put   (when-defined m m-put
+		     (fn [ss]
+		       (t-base (with-monad m (m-put ss)))))
 	  m-capture-env
-	          (with-monad m
-                     (when-defined m-capture-env
-                       (t-base m-capture-env)))
+	          (with-monad m m-capture-env
+		     (t-base (with-monad m m-capture-env)))
 	  m-local-env
-                  (with-monad m
-                     (when-defined m-local-env
-                       (when-defined m-capture-env
-                         (cont-local-env m m-local-env m-capture-env))))
+                  (when-defined m m-local-env
+                     (when-defined m m-capture-env
+		        (with-monad m (cont-local-env m m-local-env m-capture-env))))
 	  ]))
 
 ; eval-cont-t unwraps a continuation value by providing
