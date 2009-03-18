@@ -157,37 +157,17 @@
 
 (def interp-monad (state-t (cont-t (env-t error-m))))
 
-(def lift-cont (lift-state-t (cont-t (env-t error-m))))
-
-(def lift-env (comp lift-cont (lift-cont-t (env-t error-m))))
-
-(def lift-error (comp lift-env lift-env-t))
-
-(defn report-error [desc] (lift-error (fail desc)))
-
-(def interp-capture-env (lift-env (capture-env-t error-m)))
-
-(def interp-get-state (get-state-t (cont-t (env-t error-m))))
-
-(def interp-put-state (put-state-t (cont-t (env-t error-m))))
-
 (defstruct interp-state :cells)
 
-(def interp-local-env
-   (local-env-state-t (cont-local-env (env-t error-m) local-env (capture-env-t error-m))))
+(def interp-call-cc (with-monad interp-monad m-call-cc))
 
-(def interp-call-cc (call-cc-state-t call-cc))
-
-(def interp-alt-call-cc (alt-call-cc-state-t call-cc))
+;(def interp-alt-call-cc (alt-call-cc-state-t call-cc))
 
 ; interpreter environments
 
 (defn add-to-env [e k v] (assoc e k v))
 
-(defn ask-env-t [m k]
-  (domonad (env-t m) [e (capture-env-t m)] (second (find e k))))
-
-(defn interp-lookup [k] (lift-env (ask-env-t error-m k)))
+(def interp-lookup (lookup-in-env interp-monad))
 
 ; closures
 (defstruct closure :env :body)
@@ -198,7 +178,8 @@
 
 ; interp is a hack to fake top-level recursion
 (defn interp-closure [c interp]
-  (interp-local-env (fn [_] (get c :env)) (interp (get c :body))))
+  (with-monad interp-monad
+    (m-local-env (fn [_] (get c :env)) (interp (get c :body)))))
 
 ; wrap continuation into usable function
 ; interp hack again
@@ -209,13 +190,13 @@
               r)))
 
 (defn interp [e]
-  ; (prn "interp: " e)
+;  (prn "interp: " e)
   (cond
    (symbol? e) (domonad interp-monad
 		  [v (interp-lookup e)
 		   r (if v
 		         (interp v)
-			 (report-error (str "undefined variable " e)))]
+			 (m-fail (str "undefined variable " e)))]
 		  r)
    (number? e) (domonad interp-monad [] e)
    (closure? e) (interp-closure e interp)
@@ -240,10 +221,10 @@
 				      y (interp (second args))
 				      r (if (and (number? y) (not= 0 y))
 					    (m-result (/ x y))
-					    (report-error "division by 0"))]
+					    (m-fail "division by 0"))]
 				     r)
 		  (= t 'lambda-v) (domonad interp-monad
-				     [ce interp-capture-env]
+				     [ce m-capture-env]
 				     (fn [arg_cl] (domonad interp-monad
 						     [arg_val (interp arg_cl)
                                                       new_env (m-result (add-to-env ce (first args) arg_val))
@@ -251,40 +232,40 @@
 						      r       (interp body_cl)]
 						     r)))
 		  (= t 'lambda-n) (domonad interp-monad
-				     [ce interp-capture-env]
+				     [ce m-capture-env]
 				     (fn [arg_cl]
                                        (let [new-env (add-to-env ce (first args) arg_cl)
                                              body_cl (make-closure new-env (second args))]
                                             (interp body_cl))))
 		  (= t 'new-ref)  (domonad interp-monad
 				     [val  (interp (first args))
-				      s    interp-get-state
+				      s    m-get
 				      refv (m-result (get s :cells))
 				      idx  (m-result (count refv))
 				      newv (m-result (conj refv val))
 				      news (m-result (assoc s :cells newv))
-				      _    (interp-put-state news)]
+				      _    (m-put news)]
 				     idx)
 		  (= t 'read)     (domonad interp-monad
 				     [idx  (interp (first args))
-				      s    interp-get-state
+				      s    m-get
 				      refv (m-result (get s :cells))
 				      v    (m-result (nth refv idx 'not-found))
 				      x    (if (= v 'not-found)
-					     (report-error "invalid reference")
+					     (m-fail "invalid reference")
 					     (interp v))]
 				     x)
 		  (= t 'write)    (domonad interp-monad
 				     [idx  (interp (first args))
 				      val  (interp (second args))
-				      s    interp-get-state
+				      s    m-get
 				      refv (m-result (get s :cells))
 				      newv (m-result (assoc refv idx val))
 				      news (m-result (assoc s :cells newv))
-				      _    (interp-put-state news)]
+				      _    (m-put news)]
 				     nil)
                   (= t 'call-cc) (domonad interp-monad
-                                  [ce interp-capture-env
+                                  [ce m-capture-env
                                    r (interp-call-cc
                                        (fn [cont]
                                          (let [new-cont (interp-wrap-cont interp cont)
@@ -292,24 +273,24 @@
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
                                    r)
-                  (= t 'alt-call-cc) (domonad interp-monad
-                                      [ce interp-capture-env
-                                       r (interp-alt-call-cc
-                                           (fn [cont]
-                                             (let [new-cont (interp-wrap-cont interp cont)
-                                                   new-env  (add-to-env ce (first args) new-cont)
-                                                   body_cl (make-closure new-env (second args))]
-                                               (interp body_cl))))]
-                                       r)
+;                  (= t 'alt-call-cc) (domonad interp-monad
+;                                      [ce m-capture-env
+;                                       r (interp-alt-call-cc
+;                                           (fn [cont]
+;                                             (let [new-cont (interp-wrap-cont interp cont)
+;                                                   new-env  (add-to-env ce (first args) new-cont)
+;                                                   body_cl (make-closure new-env (second args))]
+;                                               (interp body_cl))))]
+;                                       r)
                   (= t 'do) (if (empty? args)
-                                (report-error "nothing to do")
+                                (with-monad interp-monad (m-fail "nothing to do"))
                                 (let [to_do (map interp args)]
                                      (domonad interp-monad
                                         [results (m-seq to_do)]
                                         (last results))))
 		  :default (domonad interp-monad
                              [f (interp (first e))
-                              ce interp-capture-env
+                              ce m-capture-env
                               r (f (make-closure ce (second e)))]
                              r)
 		  ))
@@ -422,13 +403,13 @@
 
 ; demonstrate alt-call-cc preserves the state
 ; success 6 (not 4)
-(run-interp
-  '(do tick
-       (+ (alt-call-cc exit
-            (do tick
-                tick
-                ((lambda-v t0 (exit t0)) (read time))))
-           (read time))))
+;(run-interp
+;  '(do tick
+;       (+ (alt-call-cc exit
+;            (do tick
+;                tick
+;                ((lambda-v t0 (exit t0)) (read time))))
+;           (read time))))
 
 
 
