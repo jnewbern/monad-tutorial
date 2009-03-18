@@ -167,9 +167,22 @@
    `(do
       (defmacro ~name ~args
         (list (quote ~fn-name)
-	      '~'m-bind '~'m-result '~'m-zero '~'m-plus
+	      '~'m-bind '~'m-result
+              '~'m-base '~'t-base
+	      '~'m-get  '~'m-put
+	      '~'m-capture-env '~'m-local-env
+	      '~'m-call-cc
+	      '~'m-zero '~'m-plus
+	      '~'m-fail
 	      ~@args))
-      (defn ~fn-name [~'m-bind ~'m-result ~'m-zero ~'m-plus ~@args] ~expr)))))
+      (defn ~fn-name [~'m-bind ~'m-result
+		      ~'m-base ~'t-base
+		      ~'m-get  ~'m-put
+		      ~'m-capture-env ~'m-local-env
+		      ~'m-call-cc
+		      ~'m-zero ~'m-plus
+		      ~'m-fail
+		      ~@args] ~expr)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
