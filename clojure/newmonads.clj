@@ -552,9 +552,7 @@
           ]))
 
 (defn eval-state-t [m]
-   (fn [mv s] (domonad m [v (mv s)]
-                         (do (println (str "final state: " (second v)))
-                             (first v)))))
+   (fn [mv s] (domonad m [v (mv s)] (first v))))
 
 ; environment monad transformer
 (defn env-t

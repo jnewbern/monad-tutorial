@@ -35,7 +35,7 @@
 				        default-action
 				        (second (first match)))
 			   ]
-		        (action monad (partial rec rec) e)))
+			(action monad (partial rec rec) e)))
 	]
     (partial interp interp)))
 
@@ -97,6 +97,8 @@
       (m-bind m-capture-env
         (fn [e] (m-result (second (find e name))))))))
 
+(defn add-to-env [e k v] (assoc e k v))
+
 ; A language fragment supporting symbol lookup in an environment.
 (def environment-lang
   [ ; symbol lookup
@@ -115,12 +117,154 @@
 
 ; A language fragment supporting function abstraction
 
+(defstruct closure :env :body)
+
+(defn make-closure [env body] (struct closure env body))
+
+(defn closure? [c] (and (map? c) (get c :env) (get c :body)))
+
+(def fn-lang 
+  [ ; a call-by-value lambda abstraction
+    ; This captures the current environment and creates a function
+    ; which, when applied to an argument-closure, inteprets it in
+    ; the calling environment, adds the resulting bindings to
+    ; the captured environment and evaluates the body term in the
+    ; augmented environment.
+    [ (fn [e] (and (seq? e) (= (first e) 'lambda-v)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  ce   m-capture-env]
+		 (fn [arg_cl]
+		   (domonad m
+			    [arg_val (rec arg_cl)
+			     new_env (m-result (add-to-env ce (first args) arg_val))
+			     body_cl (m-result (make-closure new_env (second args)))
+			     r       (rec body_cl)]
+			    r))))
+    ]
+    ; a call-by-name lambda abstraction
+    ; This captures the current environment and creates a function
+    ; which, when applied to an argument-closure, binds it in the
+    ; captured environment and evaluates the body term in the
+    ; augmented environment.
+    [ (fn [e] (and (seq? e) (= (first e) 'lambda-n)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  ce   m-capture-env]
+		 (fn [arg_cl]
+		   (let [new-env (add-to-env ce (first args) arg_cl)
+			 body_cl (make-closure new-env (second args))]
+		     (rec body_cl)))))
+    ]
+    ; When a closure is encountered, we interpret the body term in
+    ; the supplied environment.
+    [ (fn [e] (closure? e))
+      (fn [m rec e]
+	(with-monad m
+	 (m-local-env (fn [_] (get e :env)) (rec (get e :body)))))
+    ]
+    ; When a function is encountered, (as from a lambda-v or lambda-n
+    ; abstraction), it is lifted into the interpreter monad, where
+    ; it presumably ends up being handled by the function below.
+    [ (fn [e] (fn? e))
+    , (fn [m rec e] (domonad m [] e))
+    ]
+    ; When a sequence is found which has not matched anything yet,
+    ; treat it as a function application.  Treat the first element
+    ; as a function and create a closure for the argument.  Apply
+    ; the function to the argument closure to get the result.
+    [ (fn [e] (seq? e))
+      (fn [m rec e]
+	(domonad m
+		 [f (rec (first e))
+		  ce m-capture-env
+		  r (f (make-closure ce (second e)))]
+		 r))
+    ]
+  ])
+
+
 ; A language fragment for mutable reference cells
+
+(defstruct interp-state :cells)
+
+(def ref-lang 
+  [ ; reference cell creation
+    [ (fn [e] (and (seq? e) (= (first e) 'new-ref)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  val  (rec (first args))
+		  s    m-get
+		  refv (m-result (get s :cells))
+		  idx  (m-result (count refv))
+		  newv (m-result (conj refv val))
+		  news (m-result (assoc s :cells newv))
+		  _    (m-put news)]
+		 idx))
+    ]
+    ; read a cell
+    [ (fn [e] (and (seq? e) (= (first e) 'read)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  idx  (rec (first args))
+		  s    m-get
+		  refv (m-result (get s :cells))
+		  v    (m-result (nth refv idx 'not-found))
+		  x    (if (= v 'not-found)
+			 (m-fail "invalid reference")
+			 (rec v))]
+		 x))
+    ]
+    ; write a cell
+    [ (fn [e] (and (seq? e) (= (first e) 'write)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  idx  (rec (first args))
+		  val  (rec (second args))
+		  s    m-get
+		  refv (m-result (get s :cells))
+		  newv (m-result (assoc refv idx val))
+		  news (m-result (assoc s :cells newv))
+		  _    (m-put news)]
+		 nil))
+    ]
+  ])
+
 
 ; A language fragment for continuations
 
+
+
+; A language fragment for the "do" form
+
+(def do-lang 
+  [ ; handle do sequence
+    [ (fn [e] (and (seq? e) (= (first e) 'do)))
+      (fn [m rec e]
+	(let [args (rest e)]
+	  (if (empty? args)
+	    (with-monad m (m-fail "nothing to do"))
+	    (let [to_do (map rec args)]
+	      (domonad m [results (m-seq to_do)] (last results))))))
+    ]
+  ])
+
 ; ----------------------------------------------------------------------
 ; Tests
+
+(defn do-test [ifn name arg expected]
+  (let [result (ifn arg)]
+    (if (= result expected)
+      (do (println (str "PASSED: " name))
+	  (println (str "  " (pr-str arg) " ==> " (pr-str result))))
+      (do (println (str "FAILED: " name))
+	  (println (str "  " (pr-str arg) " ==> " (pr-str result)))
+	  (println (str "   but expected " (pr-str expected)))))))
 
 ; Create an interpreter using just the arithmetic language fragment
 ; and run a few test expressions.
@@ -130,10 +274,15 @@
 
 (def arith-interp (make-interp error-m [arith-lang] fail-bad-token))
 
-(prn (arith-interp '(+ 3 1)))
-(prn (arith-interp '(/ (+ 4 1) (- 12 (* 3 4)))))
-(prn (arith-interp '(/ (+ 4 1) (- 12 (foo 3 4)))))
-
+(do-test arith-interp "plus"
+	 '(+ 3 1)
+	 '(ok 4))
+(do-test arith-interp "div-0"
+	 '(/ (+ 4 1) (- 12 (* 3 4)))
+	 '(fail "division by 0"))
+(do-test arith-interp "bad-foo"
+	 '(/ (+ 4 1) (- 12 (foo 3 4)))
+	 '(fail "bad-token at (foo 3 4)"))
 
 ; Create an interpreter using the arithmetic language fragment and
 ; an environment of symbols and run a few tests.
@@ -147,17 +296,125 @@
 	  ]
        (fn [e] (run-with-env symbol-environment (interp e)))))
 
-(prn ((arith-env-interp {'pi 3.14159}) '(* 2 pi)))
-(prn ((arith-env-interp {'x 42, 'y 6}) '(/ x y)))
-(prn ((arith-env-interp {'x 42, 'y 6}) 'z))
-(prn ((arith-env-interp {'x 7, 'y 21}) '(/ 110 (- y (* 3 x)))))
+(do-test (arith-env-interp {'pi 3.14159}) "2-pi"
+	 '(* 2 pi)
+	 '(ok 6.28318))
+(do-test (arith-env-interp {'x 42, 'y 6}) "div-vars"
+	 '(/ x y)
+	 '(ok 7))
+(do-test (arith-env-interp {'x 7, 'y 21}) "div-0-expr"
+	 '(/ 110 (- y (* 3 x)))
+	 '(fail "division by 0"))
+
+
+; Create an interpreter using the arithmetic language fragment,
+; "do" sequences & reference cells and run a few tests.
+(def arith-ref-do-interp
+     (let [ monad     (state-t error-m)
+            parts     [ arith-lang
+		      , ref-lang
+		      , do-lang
+ 		      ]
+	    otherwise fail-bad-token
+	    interp    (make-interp monad parts otherwise)
+	  ]
+       (fn [e]
+	 (let [initial-state (struct interp-state (vector 0))]
+	   ((eval-state-t error-m) (interp e) initial-state)))))
+
+(do-test arith-ref-do-interp "make-ref"
+	 '(new-ref 7)
+	 '(ok 1))
+(do-test arith-ref-do-interp "read-ref"
+	 '(read (new-ref (+ 3 4)))
+	 '(ok 7))
+(do-test arith-ref-do-interp "bad-foo"
+	 '(+ 4 (foo 7))
+	 '(fail "bad-token at (foo 7)"))
+(do-test arith-ref-do-interp "bad-ref"
+	 '(read 1)
+	 '(fail "invalid reference"))
+(do-test arith-ref-do-interp "bad-do"
+	 '(do)
+	 '(fail "nothing to do"))
+(do-test arith-ref-do-interp "do-one"
+	 '(do (* 7 2))
+	 '(ok 14))
+(do-test arith-ref-do-interp "do-two"
+	 '(do (* 7 2) (* 7 3))
+	 '(ok 21))
+
+
+; Create an interpreter with arithmetic, env+functions, do & reference
+; cells and run a few tests.
+
+; we will use a (state-t (env-t error-m)) stack, abbreviated st-env-err
+(def st-env-err (state-t (env-t error-m)))
+
+(defn arith-ref-do-fn-interp [initial-environment]
+     (let [ monad     st-env-err
+            parts     [ arith-lang
+		      , environment-lang
+		      , ref-lang
+		      , do-lang
+		      , fn-lang
+ 		      ]
+	    otherwise fail-bad-token
+	    interp    (make-interp monad parts otherwise)
+	  ]
+       (fn [e]
+	 (let [initial-state (struct interp-state (vector 0))
+	       eval-state-fn (eval-state-t (env-t error-m))
+	       ev            (eval-state-fn (interp e) initial-state)]
+	   (run-with-env initial-environment ev)))))
+
+(do-test (arith-ref-do-fn-interp {}) "square"
+	 '((lambda-v x (* x x)) 3)
+	 '(ok 9))
+
+(do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbv"
+	 '(+ x ((lambda-v x (* x x)) (- y x)))
+	 '(ok 203))
+
+(do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbn"
+	 '(+ x ((lambda-n x (* x x)) (- y x)))
+	 '(ok 203))
+
+(do-test (arith-ref-do-fn-interp {}) "cbv-failure"
+	 '((lambda-v x 5) (/ 5 0))
+	 '(fail "division by 0"))
+
+(do-test (arith-ref-do-fn-interp {}) "cbn-success"
+	 '((lambda-n x 5) (/ 5 0))
+	 '(ok 5))
+
+(do-test (arith-ref-do-fn-interp {}) "cbv-refs"
+	 '((lambda-v r (+ 1 (read r))) (new-ref 7))
+	 '(ok 8))
+
+
+(do-test (arith-ref-do-fn-interp {}) "incr-3"
+	 '((lambda-v x-ref
+		     ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
+						  (read x-ref))))
+	   (new-ref 3))
+	 '(ok 6))
+
+(do-test (arith-ref-do-fn-interp {}) "incr-and-sum"
+	 '(((lambda-v x-ref
+		      (lambda-v y-ref
+				((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
+				 (do (write x-ref (+ 1 (read x-ref)))
+				     (write y-ref (+ 1 (read y-ref)))
+				     (+ (read x-ref) (read y-ref))))))
+	    (new-ref 3))
+	   (new-ref 5))
+	 '(ok 260))
 
 ; ----------------------------------------------------------------------
-; interpreter
+; old interpreter
 
 (def interp-monad (cont-t (state-t (cont-t (env-t error-m)))))
-
-(defstruct interp-state :cells)
 
 (def interp-call-cc
      (with-monad interp-monad (lift-call-cc m-result m-bind m-base t-base ::undefined)))
@@ -165,17 +422,7 @@
 (def interp-alt-call-cc (with-monad interp-monad m-call-cc))
 
 ; interpreter environments
-
-(defn add-to-env [e k v] (assoc e k v))
-
 (def interp-lookup (lookup-in-env interp-monad))
-
-; closures
-(defstruct closure :env :body)
-
-(defn make-closure [env body] (struct closure env body))
-
-(defn closure? [c] (and (map? c) (get c :env) (get c :body)))
 
 ; interp is a hack to fake top-level recursion
 (defn interp-closure [c interp]
