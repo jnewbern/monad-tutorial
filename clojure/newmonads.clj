@@ -33,6 +33,8 @@
 	  ~'m-plus   ::undefined
 	  ~'m-get    ::undefined
 	  ~'m-put    ::undefined
+	  ~'m-capture-env ::undefined
+	  ~'m-local-env ::undefined
 	  ~'m-fail   ::undefined
 	  ~@operations]
       {:m-result ~'m-result
@@ -43,6 +45,8 @@
        :m-plus ~'m-plus
        :m-get  ~'m-get
        :m-put  ~'m-put
+       :m-capture-env ~'m-capture-env
+       :m-local-env ~'m-local-env
        :m-fail ~'m-fail}))
 
 (defn when-defined [op new-val]
@@ -114,6 +118,8 @@
 	  ~'m-plus   (:m-plus ~name)
 	  ~'m-get    (:m-get ~name)
 	  ~'m-put    (:m-put ~name)
+	  ~'m-capture-env (:m-capture-env ~name)
+	  ~'m-local-env (:m-local-env ~name)
 	  ~'m-fail   (:m-fail ~name)]
       (do ~@exprs)))
 
@@ -487,16 +493,16 @@
 	  m-fail   (with-monad m
                      (when-defined m-fail
                        (fn [desc] (t-base (m-fail desc)))))
-;	  m-capture-env 
-;                   (with-monad m
-;                     (when-defined m-capture-env
-;		       (t-base m-capture-env)))
-;	  m-local-env
-;                   (with-monad m
-;                     (when-defined m-local-env
-;		       (fn [f mv]
-;			 (fn [s]
-;			   (m-local-env f (mv s))))))
+	  m-capture-env
+                   (with-monad m
+                     (when-defined m-capture-env
+		       (t-base m-capture-env)))
+	  m-local-env
+                   (with-monad m
+                     (when-defined m-local-env
+		       (fn [f mv]
+			 (fn [s]
+			   (m-local-env f (mv s))))))
 ;	  m-call-cc
 ;	           (with-monad m
 ;		     (when-defined m-call-cc
@@ -570,6 +576,15 @@
                      (when-defined m-put
                        (fn [ss]
                          (t-base (m-put ss)))))
+	  m-capture-env
+	          (with-monad m
+                     (when-defined m-capture-env
+                       (t-base m-capture-env)))
+	  m-local-env
+                  (with-monad m
+                     (when-defined m-local-env
+                       (when-defined m-capture-env
+                         (cont-local-env m m-local-env m-capture-env))))
 	  ]))
 
 ; eval-cont-t unwraps a continuation value by providing
