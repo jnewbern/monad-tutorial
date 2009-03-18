@@ -371,6 +371,8 @@
 	  rc (f cc)]
       (rc c))))
 
+(defn fail [err] (list 'fail err))
+
 ; error monad
 (defmonad error-m
   "Monad describing computations with possible failures.
@@ -380,9 +382,8 @@
    m-bind    (fn m-bind-error [mv f] (if (= 'ok (first mv))
 				         (f (second mv))
 					 mv))
+   m-fail    fail
    ])
-
-(defn fail [err] (list 'fail err))
 
 (defn success? [mv] (= 'ok (first mv)))
 (defn failure? [mv] (not (success? mv)))
