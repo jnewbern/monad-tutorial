@@ -601,12 +601,15 @@
 		     (fn [ss]
 		       (t-base (with-monad m (m-put ss)))))
 	  m-capture-env
-	          (with-monad m m-capture-env
+	          (when-defined m m-capture-env
 		     (t-base (with-monad m m-capture-env)))
 	  m-local-env
                   (when-defined m m-local-env
                      (when-defined m m-capture-env
 		        (with-monad m (cont-local-env m m-local-env m-capture-env))))
+	  m-fail  (when-defined m m-fail
+		    (fn [desc]
+		      (t-base (with-monad m (m-fail desc)))))
 	  ]))
 
 ; eval-cont-t unwraps a continuation value by providing
