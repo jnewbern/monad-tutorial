@@ -45,7 +45,7 @@
 
 
 ; A simple arithmetic language supporting +,-,* and / of numeric literals.
-(defn arith-lang [report-error-fn]
+(def arith-lang
   [ ; literal numbers
     [ (fn [e] (number? e))
     , (fn [m _ e] (domonad m [] e))
@@ -86,22 +86,27 @@
 		  y    (rec (second args))
 		  r    (if (and (number? y) (not= 0 y))
 			 (m-result (/ x y))
-			 (report-error-fn "division by 0"))]
+			 (m-fail "division by 0"))]
 		 r))
     ]
   ])
 
+(defn lookup-in-env [m]
+  (fn [name]
+    (with-monad m
+      (m-bind m-capture-env
+        (fn [e] (m-result (second (find e name))))))))
 
 ; A language fragment supporting symbol lookup in an environment.
-(defn environment-lang [report-error-fn env-lookup-fn]
+(def environment-lang
   [ ; symbol lookup
     [ (fn [e] (symbol? e))
     , (fn [m rec e]
 	(domonad m
-		 [v (env-lookup-fn e)
+		 [v ((lookup-in-env m) e)
 		  r (if v
 		      (rec v)
-		      (report-error-fn (str "undefined variable " e)))]
+		      (m-fail (str "undefined variable " e)))]
 		 r))
     ]
 
@@ -121,9 +126,9 @@
 ; and run a few test expressions.
 
 (defn fail-bad-token [m _ e]
-  (with-monad m (fail (str "bad-token at " (pr-str e)))))
+  (with-monad m (m-fail (str "bad-token at " (pr-str e)))))
 
-(def arith-interp (make-interp error-m [(arith-lang fail)] fail-bad-token))
+(def arith-interp (make-interp error-m [arith-lang] fail-bad-token))
 
 (prn (arith-interp '(+ 3 1)))
 (prn (arith-interp '(/ (+ 4 1) (- 12 (* 3 4)))))
@@ -132,29 +137,19 @@
 
 ; Create an interpreter using the arithmetic language fragment and
 ; an environment of symbols and run a few tests.
-
-(defn fail-in-env [desc] (lift-env-t (fail desc)))
-
-(defn lookup-in-env [name]
-  (domonad (env-t error-m)
-	   [e (capture-env-t error-m)]
-	   (second (find e name))))
-
-(defn fail-bad-token-in-env [m _ e]
-  (lift-env-t (with-monad m (fail (str "bad-token at " (pr-str e))))))
-
 (defn arith-env-interp [symbol-environment]
      (let [ monad     (env-t error-m)
-            parts     [ (arith-lang fail-in-env)
-		      , (environment-lang fail-in-env lookup-in-env)
+            parts     [ arith-lang
+		      , environment-lang
 		      ]
-	    otherwise fail-bad-token-in-env
+	    otherwise fail-bad-token
 	    interp    (make-interp monad parts otherwise)
 	  ]
        (fn [e] (run-with-env symbol-environment (interp e)))))
 
 (prn ((arith-env-interp {'pi 3.14159}) '(* 2 pi)))
 (prn ((arith-env-interp {'x 42, 'y 6}) '(/ x y)))
+(prn ((arith-env-interp {'x 42, 'y 6}) 'z))
 (prn ((arith-env-interp {'x 7, 'y 21}) '(/ 110 (- y (* 3 x)))))
 
 ; ----------------------------------------------------------------------
