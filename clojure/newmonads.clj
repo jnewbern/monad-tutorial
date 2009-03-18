@@ -107,6 +107,8 @@
 	  ~'t-base   (:t-base ~name)
 	  ~'m-zero   (:m-zero ~name)
 	  ~'m-plus   (:m-plus ~name)
+	  ~'m-get    (:m-get ~name)
+	  ~'m-put    (:m-put ~name)
 	  ~'m-fail   (:m-fail ~name)]
       (do ~@exprs)))
 
