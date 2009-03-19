@@ -485,17 +485,29 @@
      (fn [s]
         (domonad m [v mv] (list v s)))))
 
+; lift-call-cc over an arbitrary monad
+(defn lift-call-cc [t-m-result t-m-bind t-m-base t-t-base t-t-map]
+  (let [join (fn [mma] (t-m-bind mma identity))
+        q    (fn [c]   (fn [a] (t-t-base (c (t-m-result a)))))]
+    (fn [f]
+      (join
+       (t-t-base
+	(with-monad t-m-base
+	  (m-call-cc
+	   (fn [c] (m-result (f (q c)))))))))))
+
+
 ; lift call-cc over a state monad
 ; restores state when calling continuation
-(defn call-cc-state-t [call-cc-m]
-   (fn [f] ; function expecting a continuation
-     (fn [s]
-       (call-cc-m
-	(fn [c]
-	  ((f (fn [v]
-		(fn [_]
-		  (c (list v s)))))
-	   s))))))
+;(defn call-cc-state-t [call-cc-m]
+;   (fn [f] ; function expecting a continuation
+;     (fn [s]
+;       (call-cc-m
+;	(fn [c]
+;	  ((f (fn [v]
+;		(fn [_]
+;		  (c (list v s)))))
+;	   s))))))
 
 (defn state-t
   "Monad transformer that transforms a monad m into a monad of stateful
@@ -529,8 +541,7 @@
 			   (m-local-env f (mv s))))))
 	  m-call-cc
 	           (when-defined m m-call-cc
-		     (with-monad m
-		       (call-cc-state-t m-call-cc)))
+		     (lift-call-cc m-result m-bind m-base t-base ::undefined))
           m-zero   (when-defined m m-zero
                      (t-base (with-monad m m-zero)))
           m-plus   (when-defined m m-plus
