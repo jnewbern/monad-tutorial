@@ -29,6 +29,7 @@
 	  ~'m-result ::undefined
 	  ~'m-base   ::undefined
 	  ~'t-base   ::undefined
+	  ~'t-map    ::undefined
 	  ~'m-zero   ::undefined
 	  ~'m-plus   ::undefined
 	  ~'m-get    ::undefined
@@ -42,6 +43,7 @@
        :m-bind ~'m-bind 
        :m-base ~'m-base
        :t-base ~'t-base
+       :t-map  ~'t-map
        :m-zero ~'m-zero
        :m-plus ~'m-plus
        :m-get  ~'m-get
@@ -116,6 +118,7 @@
 	  ~'m-result (:m-result ~name)
 	  ~'m-base   (:m-base ~name)
 	  ~'t-base   (:t-base ~name)
+	  ~'t-map    (:t-map ~name)
 	  ~'m-zero   (:m-zero ~name)
 	  ~'m-plus   (:m-plus ~name)
 	  ~'m-get    (:m-get ~name)
@@ -168,7 +171,7 @@
       (defmacro ~name ~args
         (list (quote ~fn-name)
 	      '~'m-bind '~'m-result
-              '~'m-base '~'t-base
+              '~'m-base '~'t-base '~'t-map
 	      '~'m-get  '~'m-put
 	      '~'m-capture-env '~'m-local-env
 	      '~'m-call-cc
@@ -176,7 +179,7 @@
 	      '~'m-fail
 	      ~@args))
       (defn ~fn-name [~'m-bind ~'m-result
-		      ~'m-base ~'t-base
+		      ~'m-base ~'t-base ~'t-map
 		      ~'m-get  ~'m-put
 		      ~'m-capture-env ~'m-local-env
 		      ~'m-call-cc
@@ -475,6 +478,12 @@
 	  t-base   (fn t-base-sequence-t [mv]
 		     (with-monad m
 		       (m-bind mv (fn [v] (m-result (list v))))))
+	  t-map    (fn t-map-sequence-t [mop]
+		     (fn [mv]
+		       (with-monad m
+			 (m-bind mv
+			   (fn [xs]
+			     (m-seq (map (comp mop m-result) xs)))))))
 	  m-fail   (fn [desc] (domonad m [] (list)))
 	  ]))
 
@@ -496,6 +505,11 @@
 	  (m-call-cc
 	   (fn [c] (m-result (f (q c)))))))))))
 
+; lift local-env over an arbitrary monad
+(defn lift-local-env [t-m-result t-m-bind t-m-base t-t-base t-t-map]
+  (fn [f mv]
+    (with-monad t-m-base
+      ((t-t-map (partial m-local-env f)) mv))))
 
 ; lift call-cc over a state monad
 ; restores state when calling continuation
@@ -525,6 +539,8 @@
                                    ((f v) ss))))))
 	  m-base   m
 	  t-base   (lift-state-t m)
+	  t-map    (fn t-map-state-t [mop]
+		     (fn [mv] (fn [s] (mop (mv s)))))
 	  m-get    (fn [s] (domonad m [] (list s s)))
 	  m-put    (fn [ss] (fn [s] (domonad m [] (list nil ss))))
 	  m-fail   (when-defined m m-fail
@@ -535,13 +551,10 @@
 		       (t-base (with-monad m m-capture-env)))
 	  m-local-env
                    (when-defined m m-local-env
-                     (with-monad m
-		       (fn [f mv]
-			 (fn [s]
-			   (m-local-env f (mv s))))))
+		     (lift-local-env m-result m-bind m-base t-base t-map))
 	  m-call-cc
 	           (when-defined m m-call-cc
-		     (lift-call-cc m-result m-bind m-base t-base ::undefined))
+		     (lift-call-cc m-result m-bind m-base t-base t-map))
           m-zero   (when-defined m m-zero
                      (t-base (with-monad m m-zero)))
           m-plus   (when-defined m m-plus
@@ -567,6 +580,8 @@
 				       (fn [x] ((f x) e))))))
 	  m-base   m
 	  t-base   (fn [mv] (fn [_] mv))
+	  t-map    (fn [mop]
+		     (fn [mv] (fn [e] (mop (mv e)))))
 	  m-capture-env
 	           (with-monad m
 		      (fn [e] (m-result e)))
@@ -603,6 +618,9 @@
                      (fn [c] (mv (fn [a] ((f a) c)))))
 	  m-base   m
 	  t-base   (lift-cont-t m)
+	  t-map    (fn t-map-cont-t [mop]
+		     (fn [mv]
+		       (fn [k] (mop (mv (comp mop k))))))
 	  m-call-cc call-cc
 	  m-get   (when-defined m m-get
 		     (t-base (with-monad m m-get)))
