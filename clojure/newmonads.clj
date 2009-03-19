@@ -495,21 +495,21 @@
         (domonad m [v mv] (list v s)))))
 
 ; lift-call-cc over an arbitrary monad
-(defn lift-call-cc [t-m-result t-m-bind t-m-base t-t-base t-t-map]
+(defn lift-call-cc [call-cc t-m-result t-m-bind t-m-base t-t-base t-t-map]
   (let [join (fn [mma] (t-m-bind mma identity))
         q    (fn [c]   (fn [a] (t-t-base (c (t-m-result a)))))]
     (fn [f]
       (join
        (t-t-base
 	(with-monad t-m-base
-	  (m-call-cc
+	  (call-cc
 	   (fn [c] (m-result (f (q c)))))))))))
 
 ; lift local-env over an arbitrary monad
-(defn lift-local-env [t-m-result t-m-bind t-m-base t-t-base t-t-map]
+(defn lift-local-env [local-env t-m-result t-m-bind t-m-base t-t-base t-t-map]
   (fn [f mv]
     (with-monad t-m-base
-      ((t-t-map (partial m-local-env f)) mv))))
+      ((t-t-map (partial local-env f)) mv))))
 
 ; lift call-cc over a state monad
 ; restores state when calling continuation
@@ -551,10 +551,10 @@
 		       (t-base (with-monad m m-capture-env)))
 	  m-local-env
                    (when-defined m m-local-env
-		     (lift-local-env m-result m-bind m-base t-base t-map))
+		     (lift-local-env (with-monad m m-local-env) m-result m-bind m-base t-base t-map))
 	  m-call-cc
 	           (when-defined m m-call-cc
-		     (lift-call-cc m-result m-bind m-base t-base t-map))
+		     (lift-call-cc (with-monad m m-call-cc) m-result m-bind m-base t-base t-map))
           m-zero   (when-defined m m-zero
                      (t-base (with-monad m m-zero)))
           m-plus   (when-defined m m-plus
@@ -592,7 +592,7 @@
                      (fn [ss]
 		       (t-base (with-monad m (m-put ss)))))
 	  m-call-cc (when-defined m m-call-cc
-		      (lift-call-cc m-result m-bind m-base t-base t-map))
+		      (lift-call-cc (with-monad m m-call-cc) m-result m-bind m-base t-base t-map))
 	  m-fail   (when-defined m m-fail
 		    (fn [desc]
 		      (t-base (with-monad m (m-fail desc)))))
@@ -634,7 +634,7 @@
 		     (t-base (with-monad m m-capture-env)))
 	  m-local-env
                   (when-defined m m-local-env
-                     (lift-local-env m-result m-bind m-base t-base t-map))
+                     (lift-local-env (with-monad m m-local-env) m-result m-bind m-base t-base t-map))
 	  m-fail  (when-defined m m-fail
 		    (fn [desc]
 		      (t-base (with-monad m (m-fail desc)))))
