@@ -513,9 +513,18 @@
 ; we will use an (env-t (state-t (cont-t error-m))) stack, abbreviated ecsce
 (def ecsce (env-t (cont-t (state-t (cont-t error-m)))))
 
+; these parts of the stack are used for lifting
+(def csce (cont-t (state-t (cont-t error-m))))
+(def sce (state-t (cont-t error-m)))
+
 (def ecsce-alt-call-cc
      (with-monad ecsce
-      (lift-call-cc m-result m-bind m-base t-base t-map)))
+      (lift-call-cc
+       (with-monad csce
+        (lift-call-cc
+	 (with-monad sce m-call-cc)
+	 m-result m-bind m-base t-base t-map))
+       m-result m-bind m-base t-base t-map)))
 
 (defn arith-ref-do-fn-cont-interp [initial-environment]
      (let [ monad     ecsce
