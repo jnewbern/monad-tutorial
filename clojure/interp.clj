@@ -510,36 +510,38 @@
 ; Create an interpreter with arithmetic, env+functions, do,
 ; continuations & reference cells and run a few tests.
 
-; we will use a (state-t (cont-t (env-t error-m))) stack, abbreviated scee
-(def scee (cont-t (state-t (cont-t (env-t error-m)))))
+; we will use an (env-t (state-t (cont-t error-m))) stack, abbreviated ecsce
+(def ecsce (env-t (cont-t (state-t (cont-t error-m)))))
 
-(def scee-alt-call-cc
-     (with-monad scee
-      (lift-call-cc m-result m-bind m-base t-base ::undefined)))
+(def ecsce-alt-call-cc
+     (with-monad ecsce
+      (lift-call-cc m-result m-bind m-base t-base t-map)))
 
 (defn arith-ref-do-fn-cont-interp [initial-environment]
-     (let [ monad     scee
+     (let [ monad     ecsce
             parts     [ arith-lang
 		      , environment-lang
 		      , ref-lang
 		      , do-lang
 		      , cont-lang
-		      , (alt-cont-lang scee-alt-call-cc)
+		      , (alt-cont-lang ecsce-alt-call-cc)
 		      , fn-lang
  		      ]
 	    otherwise fail-bad-token
 	    interp    (make-interp monad parts otherwise)
 	  ]
        (fn [e]
-	 (let [eval-cont-fn1 (fn [x] (eval-cont-t (state-t (cont-t (env-t error-m))) x))
-	       v0 (eval-cont-fn1 (interp e))
+	 (let [eval-env (partial run-with-env initial-environment)
+	       v0 (eval-env (interp e))
+	       eval-cont-fn1 (fn [x] (eval-cont-t (state-t (cont-t error-m)) x))
+	       v1 (eval-cont-fn1 v0)
 	       initial-state (struct interp-state (vector 0)) ; with cell 0 pre-defined
-	       eval-state-fn (eval-state-t (cont-t (env-t error-m)))
-	       v1            (eval-state-fn v0 initial-state)
-	       eval-cont-fn2  (fn [x] (eval-cont-t (env-t error-m) x))
-	       v2            (eval-cont-fn2 v1)
+	       eval-state-fn (eval-state-t (cont-t error-m))
+	       v2            (eval-state-fn v1 initial-state)
+	       eval-cont-fn2  (fn [x] (eval-cont-t error-m x))
+	       v3            (eval-cont-fn2 v2)
 	      ]
-	   (run-with-env initial-environment v2)))))
+	   v3))))
 
 (do-test (arith-ref-do-fn-cont-interp {}) "mult-2"
 	 '(* 3 3)
@@ -624,19 +626,19 @@
 	 '(ok 260))
 
 ; use the pre-defined reference as time counter
-(def interp-with-time-ref-scee
+(def interp-with-time-ref-ecsce
      (arith-ref-do-fn-cont-interp {'time  0, ; using the pre-defined reference
 			           'tick '(write time (+ 1 (read time))) }))
 
-(do-test interp-with-time-ref-scee "start-time-2"
+(do-test interp-with-time-ref-ecsce "start-time-2"
 	 '(read time)
 	 '(ok 0))
 
-(do-test interp-with-time-ref-scee "incr-time-2"
+(do-test interp-with-time-ref-ecsce "incr-time-2"
 	 '(do tick (read time))
 	 '(ok 1))
 
-(do-test interp-with-time-ref-scee "add-time-2"
+(do-test interp-with-time-ref-ecsce "add-time-2"
 	 '(+ (do tick 1) (read time))
 	 '(ok 2))
 
@@ -664,7 +666,7 @@
 				 (exit-fn (lambda-v r (* n (+ r 1))))))) 5)
 	 '(ok 30))
 
-(do-test interp-with-time-ref-scee "alt-call-cc-resets-state"
+(do-test interp-with-time-ref-ecsce "alt-call-cc-resets-state"
 	 '(do tick
 	      (+ (alt-call-cc exit
 			      (do tick
@@ -673,7 +675,7 @@
 		 (read time)))
 	 '(ok 4))
 
-(do-test interp-with-time-ref-scee "call-cc-preserves-state"
+(do-test interp-with-time-ref-ecsce "call-cc-preserves-state"
 	 '(do tick
 	      (+ (call-cc exit
 			  (do tick
