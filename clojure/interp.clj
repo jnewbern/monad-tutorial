@@ -155,13 +155,14 @@
 ; ----------------------------------------------------------------------
 ; interpreter
 
-(def interp-monad (state-t (cont-t (env-t error-m))))
+(def interp-monad (cont-t (state-t (cont-t (env-t error-m)))))
 
 (defstruct interp-state :cells)
 
-(def interp-call-cc (with-monad interp-monad m-call-cc))
+(def interp-call-cc
+     (with-monad interp-monad (lift-call-cc m-result m-bind m-base t-base ::undefined)))
 
-;(def interp-alt-call-cc (alt-call-cc-state-t call-cc))
+(def interp-alt-call-cc (with-monad interp-monad m-call-cc))
 
 ; interpreter environments
 
@@ -273,15 +274,15 @@
                                                body_cl (make-closure new-env (second args))]
                                               (interp body_cl))))]
                                    r)
-;                  (= t 'alt-call-cc) (domonad interp-monad
-;                                      [ce m-capture-env
-;                                       r (interp-alt-call-cc
-;                                           (fn [cont]
-;                                             (let [new-cont (interp-wrap-cont interp cont)
-;                                                   new-env  (add-to-env ce (first args) new-cont)
-;                                                   body_cl (make-closure new-env (second args))]
-;                                               (interp body_cl))))]
-;                                       r)
+                  (= t 'alt-call-cc) (domonad interp-monad
+                                      [ce m-capture-env
+                                       r (interp-alt-call-cc
+                                           (fn [cont]
+                                             (let [new-cont (interp-wrap-cont interp cont)
+                                                   new-env  (add-to-env ce (first args) new-cont)
+                                                   body_cl (make-closure new-env (second args))]
+                                               (interp body_cl))))]
+                                       r)
                   (= t 'do) (if (empty? args)
                                 (with-monad interp-monad (m-fail "nothing to do"))
                                 (let [to_do (map interp args)]
@@ -312,7 +313,10 @@
       (prn 'run-interp exp)
       (prn (run-with-env initial-env
              (eval-cont-t (env-t error-m)
-               (run-interp-state (interp exp) initial-state)))))
+               (run-interp-state 
+		(eval-cont-t (state-t (cont-t (env-t error-m)))
+			     (interp exp))
+		initial-state)))))
 
 ; success: 3
 (run-interp 3)
@@ -403,13 +407,13 @@
 
 ; demonstrate alt-call-cc preserves the state
 ; success 6 (not 4)
-;(run-interp
-;  '(do tick
-;       (+ (alt-call-cc exit
-;            (do tick
-;                tick
-;                ((lambda-v t0 (exit t0)) (read time))))
-;           (read time))))
+(run-interp
+  '(do tick
+       (+ (alt-call-cc exit
+            (do tick
+                tick
+                ((lambda-v t0 (exit t0)) (read time))))
+           (read time))))
 
 
 
