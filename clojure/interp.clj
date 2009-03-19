@@ -111,7 +111,6 @@
 		      (m-fail (str "undefined variable " e)))]
 		 r))
     ]
-
   ])
 
 
@@ -242,6 +241,46 @@
 
 ; A language fragment for continuations
 
+(def cont-lang 
+  [ ; handle "default" call-cc form (use outermost effect)
+    [ (fn [e] (and (seq? e) (= (first e) 'call-cc)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  ce   m-capture-env
+		  r    (m-call-cc
+			(fn [cont]
+			  (let [new-cont (fn [arg] (domonad m
+							    [v (rec arg)
+							     r (cont v)]
+							    r))
+				new-env  (add-to-env ce (first args) new-cont)
+				body_cl  (make-closure new-env (second args))]
+			    (rec body_cl))))]
+		 r))
+    ]
+  ])
+
+(defn alt-cont-lang [alt-call-cc-fn]
+  [
+    ; handle alternative call-cc (using a special effect function)
+    [ (fn [e] (and (seq? e) (= (first e) 'alt-call-cc)))
+      (fn [m rec e]
+	(domonad m
+		 [args (m-result (rest e))
+		  ce   m-capture-env
+		  r    (alt-call-cc-fn
+			(fn [cont]
+			  (let [new-cont (fn [arg] (domonad m
+							    [v (rec arg)
+							     r (cont v)]
+							    r))
+				new-env  (add-to-env ce (first args) new-cont)
+				body_cl (make-closure new-env (second args))]
+			    (rec body_cl))))]
+		 r))
+    ]
+  ])
 
 
 ; A language fragment for the "do" form
@@ -323,7 +362,7 @@
 	    interp    (make-interp monad parts otherwise)
 	  ]
        (fn [e]
-	 (let [initial-state (struct interp-state (vector 0))]
+	 (let [initial-state (struct interp-state (vector 0))] ; one pre-defined reference
 	   ((eval-state-t error-m) (interp e) initial-state)))))
 
 (do-test arith-ref-do-interp "make-ref"
@@ -367,7 +406,7 @@
 	    interp    (make-interp monad parts otherwise)
 	  ]
        (fn [e]
-	 (let [initial-state (struct interp-state (vector 0))
+	 (let [initial-state (struct interp-state (vector 0)) ; one pre-defined reference
 	       eval-state-fn (eval-state-t (env-t error-m))
 	       ev            (eval-state-fn (interp e) initial-state)]
 	   (run-with-env initial-environment ev)))))
@@ -672,60 +711,195 @@
 ; success 7
 (run-interp '(do 5 7))
 
-; success 0
-(run-interp '(read time))
+; use the pre-defined reference as time counter
+(def interp-with-time-ref
+     (arith-ref-do-fn-interp {'time  0, ; using the pre-defined reference
+			      'tick '(write time (+ 1 (read time))) }))
 
-; success 1
-(run-interp '(do tick (read time)))
+(do-test interp-with-time-ref "start-time"
+	 '(read time)
+	 '(ok 0))
 
-; success 2
-(run-interp '(+ (do tick 1) (read time)))
+(do-test interp-with-time-ref "incr-time"
+	 '(do tick (read time))
+	 '(ok 1))
 
-; demonstrate call-cc resets the state
-; success 4 (not 6)
-(run-interp
-  '(do tick
-       (+ (call-cc exit
-            (do tick
-                tick
-                ((lambda-v t0 (exit t0)) (read time))))
-           (read time))))
-
-; demonstrate alt-call-cc preserves the state
-; success 6 (not 4)
-(run-interp
-  '(do tick
-       (+ (alt-call-cc exit
-            (do tick
-                tick
-                ((lambda-v t0 (exit t0)) (read time))))
-           (read time))))
+(do-test interp-with-time-ref "add-time"
+	 '(+ (do tick 1) (read time))
+	 '(ok 2))
 
 
+; Create an interpreter with arithmetic, env+functions, do,
+; continuations & reference cells and run a few tests.
 
-; success 1
-(run-interp '(new-ref 7))
+; we will use a (state-t (cont-t (env-t error-m))) stack, abbreviated scee
+(def scee (cont-t (state-t (cont-t (env-t error-m)))))
 
-; success 7
-(run-interp '(read (new-ref 7)))
+(def scee-alt-call-cc
+     (with-monad scee
+      (lift-call-cc m-result m-bind m-base t-base ::undefined)))
 
-; success 8
-(run-interp '((lambda-v r (+ 1 (read r))) (new-ref 7)))
+(defn arith-ref-do-fn-cont-interp [initial-environment]
+     (let [ monad     scee
+            parts     [ arith-lang
+		      , environment-lang
+		      , ref-lang
+		      , do-lang
+		      , cont-lang
+		      , (alt-cont-lang scee-alt-call-cc)
+		      , fn-lang
+ 		      ]
+	    otherwise fail-bad-token
+	    interp    (make-interp monad parts otherwise)
+	  ]
+       (fn [e]
+	 (let [eval-cont-fn1 (fn [x] (eval-cont-t (state-t (cont-t (env-t error-m))) x))
+	       v0 (eval-cont-fn1 (interp e))
+	       initial-state (struct interp-state (vector 0)) ; with cell 0 pre-defined
+	       eval-state-fn (eval-state-t (cont-t (env-t error-m)))
+	       v1            (eval-state-fn v0 initial-state)
+	       eval-cont-fn2  (fn [x] (eval-cont-t (env-t error-m) x))
+	       v2            (eval-cont-fn2 v1)
+	      ]
+	   (run-with-env initial-environment v2)))))
 
-; success 6
-(run-interp
-  '((lambda-v x-ref
-      ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
-				   (read x-ref))))
-    (new-ref 3)))
+(do-test (arith-ref-do-fn-cont-interp {}) "mult-2"
+	 '(* 3 3)
+	 '(ok 9))
 
-; success 260
-(run-interp
-   '(((lambda-v x-ref
-        (lambda-v y-ref
-	   ((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
-	    (do (write x-ref (+ 1 (read x-ref)))
-		(write y-ref (+ 1 (read y-ref)))
-		(+ (read x-ref) (read y-ref))))))
-      (new-ref 3))
-     (new-ref 5)))
+(do-test (arith-ref-do-fn-cont-interp {'pi 3.14159}) "env"
+	 '(* 2 pi)
+	 '(ok 6.28318))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "square-2"
+	 '((lambda-v x (* x x)) 3)
+	 '(ok 9))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "bad-fn-2"
+	 '((+ 3 6) 7)
+	 '(fail "not a function: 9"))
+
+(do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbv-2"
+	 '(+ x ((lambda-v x (* x x)) (- y x)))
+	 '(ok 203))
+
+(do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbn-2"
+	 '(+ x ((lambda-n x (* x x)) (- y x)))
+	 '(ok 203))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "cbv-failure-2"
+	 '((lambda-v x 5) (/ 5 0))
+	 '(fail "division by 0"))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "cbn-success-2"
+	 '((lambda-n x 5) (/ 5 0))
+	 '(ok 5))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "make-ref-3"
+	 '(new-ref 7)
+	 '(ok 1))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "read-ref-3"
+	 '(read (new-ref (+ 3 4)))
+	 '(ok 7))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "bad-foo-3"
+	 '(+ 4 (foo 7))
+	 '(fail "undefined variable foo"))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "bad-ref-3"
+	 '(read 1)
+	 '(fail "invalid reference"))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "bad-do-3"
+	 '(do)
+	 '(fail "nothing to do"))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "do-one-3"
+	 '(do (* 7 2))
+	 '(ok 14))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "do-two-3"
+	 '(do (* 7 2) (* 7 3))
+	 '(ok 21))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "cbv-refs-2"
+	 '((lambda-v r (+ 1 (read r))) (new-ref 7))
+	 '(ok 8))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "incr-by-3"
+	 '((lambda-v x-ref
+		     ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
+						  (read x-ref))))
+	   (new-ref 3))
+	 '(ok 6))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "incr-and-sum-2"
+	 '(((lambda-v x-ref
+		      (lambda-v y-ref
+				((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
+				 (do (write x-ref (+ 1 (read x-ref)))
+				     (write y-ref (+ 1 (read y-ref)))
+				     (+ (read x-ref) (read y-ref))))))
+	    (new-ref 3))
+	   (new-ref 5))
+	 '(ok 260))
+
+; use the pre-defined reference as time counter
+(def interp-with-time-ref-scee
+     (arith-ref-do-fn-cont-interp {'time  0, ; using the pre-defined reference
+			           'tick '(write time (+ 1 (read time))) }))
+
+(do-test interp-with-time-ref-scee "start-time-2"
+	 '(read time)
+	 '(ok 0))
+
+(do-test interp-with-time-ref-scee "incr-time-2"
+	 '(do tick (read time))
+	 '(ok 1))
+
+(do-test interp-with-time-ref-scee "add-time-2"
+	 '(+ (do tick 1) (read time))
+	 '(ok 2))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "call-cc"
+	 '(call-cc exit (+ 5 (exit 3)))
+	 '(ok 3))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-2"
+	 '(+ (call-cc exit (+ 7 (exit 9)))
+	     (+ 2 (call-cc exit (- 2 (exit 3)))))
+	 '(ok 14))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-div"
+	 '(* (call-cc exit (/ (exit 5) 0)) 5)
+	 '(ok 25))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-fn"
+	 '((call-cc exit-fn (lambda-v n (* n 2))) 5)
+	 '(ok 10))
+
+(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-escape"
+	 '((call-cc exit-fn
+		    (lambda-v n
+			      (+ n
+				 (exit-fn (lambda-v r (* n (+ r 1))))))) 5)
+	 '(ok 30))
+
+(do-test interp-with-time-ref-scee "alt-call-cc-resets-state"
+	 '(do tick
+	      (+ (alt-call-cc exit
+			      (do tick
+				  tick
+				  ((lambda-v t0 (exit t0)) (read time))))
+		 (read time)))
+	 '(ok 4))
+
+(do-test interp-with-time-ref-scee "call-cc-preserves-state"
+	 '(do tick
+	      (+ (call-cc exit
+			  (do tick
+			      tick
+			      ((lambda-v t0 (exit t0)) (read time))))
+		 (read time)))
+	 '(ok 6))
