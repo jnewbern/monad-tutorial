@@ -124,7 +124,21 @@
 (defn closure? [c] (and (map? c) (get c :env) (get c :body)))
 
 (def fn-lang 
-  [ ; a call-by-value lambda abstraction
+  [ ; When a closure is encountered, we interpret the body term in
+    ; the supplied environment.
+    [ (fn [e] (closure? e))
+      (fn [m rec e]
+	(with-monad m
+	 (m-local-env (fn [_] (get e :env)) (rec (get e :body)))))
+    ]
+    ; When a function is encountered, (as from a lambda-v or lambda-n
+    ; abstraction), it is lifted into the interpreter monad, where
+    ; it is handled when it falls in the head position of an
+    ; application term.
+    [ (fn [e] (fn? e))
+      (fn [m rec e] (domonad m [] e))
+    ]
+    ; a call-by-value lambda abstraction
     ; This captures the current environment and creates a function
     ; which, when applied to an argument-closure, inteprets it in
     ; the calling environment, adds the resulting bindings to
@@ -158,19 +172,6 @@
 			 body_cl (make-closure new-env (second args))]
 		     (rec body_cl)))))
     ]
-    ; When a closure is encountered, we interpret the body term in
-    ; the supplied environment.
-    [ (fn [e] (closure? e))
-      (fn [m rec e]
-	(with-monad m
-	 (m-local-env (fn [_] (get e :env)) (rec (get e :body)))))
-    ]
-    ; When a function is encountered, (as from a lambda-v or lambda-n
-    ; abstraction), it is lifted into the interpreter monad, where
-    ; it presumably ends up being handled by the function below.
-    [ (fn [e] (fn? e))
-    , (fn [m rec e] (domonad m [] e))
-    ]
     ; When a sequence is found which has not matched anything yet,
     ; treat it as a function application.  Treat the first element
     ; as a function and create a closure for the argument.  Apply
@@ -178,9 +179,12 @@
     [ (fn [e] (seq? e))
       (fn [m rec e]
 	(domonad m
-		 [f (rec (first e))
+		 [f  (rec (first e))
 		  ce m-capture-env
-		  r (f (make-closure ce (second e)))]
+		  r  (if (fn? f)
+		       (f (make-closure ce (second e)))
+		       (m-fail (str "not a function: " f)))
+		 ]
 		 r))
     ]
   ])
@@ -368,9 +372,17 @@
 	       ev            (eval-state-fn (interp e) initial-state)]
 	   (run-with-env initial-environment ev)))))
 
-(do-test (arith-ref-do-fn-interp {}) "square"
+(do-test (arith-ref-do-fn-interp {}) "mult"
+	 '(* 3 3)
+	 '(ok 9))
+
+(do-test (arith-ref-do-fn-interp {'y 4}) "square"
 	 '((lambda-v x (* x x)) 3)
 	 '(ok 9))
+
+(do-test (arith-ref-do-fn-interp {}) "bad-fn"
+	 '((+ 3 6) 7)
+	 '(fail "not a function: 9"))
 
 (do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbv"
 	 '(+ x ((lambda-v x (* x x)) (- y x)))
@@ -388,10 +400,37 @@
 	 '((lambda-n x 5) (/ 5 0))
 	 '(ok 5))
 
+(do-test (arith-ref-do-fn-interp {}) "make-ref-2"
+	 '(new-ref 7)
+	 '(ok 1))
+
+(do-test (arith-ref-do-fn-interp {}) "read-ref-2"
+	 '(read (new-ref (+ 3 4)))
+	 '(ok 7))
+
+(do-test (arith-ref-do-fn-interp {}) "bad-foo-2"
+	 '(+ 4 (foo 7))
+	 '(fail "undefined variable foo"))
+
+(do-test (arith-ref-do-fn-interp {}) "bad-ref-2"
+	 '(read 1)
+	 '(fail "invalid reference"))
+
+(do-test (arith-ref-do-fn-interp {}) "bad-do-2"
+	 '(do)
+	 '(fail "nothing to do"))
+
+(do-test (arith-ref-do-fn-interp {}) "do-one-2"
+	 '(do (* 7 2))
+	 '(ok 14))
+
+(do-test (arith-ref-do-fn-interp {}) "do-two-2"
+	 '(do (* 7 2) (* 7 3))
+	 '(ok 21))
+
 (do-test (arith-ref-do-fn-interp {}) "cbv-refs"
 	 '((lambda-v r (+ 1 (read r))) (new-ref 7))
 	 '(ok 8))
-
 
 (do-test (arith-ref-do-fn-interp {}) "incr-3"
 	 '((lambda-v x-ref
@@ -484,7 +523,7 @@
 				     (fn [arg_cl]
                                        (let [new-env (add-to-env ce (first args) arg_cl)
                                              body_cl (make-closure new-env (second args))]
-                                            (interp body_cl))))
+					 (interp body_cl))))
 		  (= t 'new-ref)  (domonad interp-monad
 				     [val  (interp (first args))
 				      s    m-get
