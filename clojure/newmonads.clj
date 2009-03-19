@@ -591,6 +591,8 @@
 	  m-put    (when-defined m m-put
                      (fn [ss]
 		       (t-base (with-monad m (m-put ss)))))
+	  m-call-cc (when-defined m m-call-cc
+		      (lift-call-cc m-result m-bind m-base t-base t-map))
 	  m-fail   (when-defined m m-fail
 		    (fn [desc]
 		      (t-base (with-monad m (m-fail desc)))))
@@ -601,13 +603,13 @@
    (fn [mv] (with-monad m (partial m-bind mv))))
 
 ; rebuild local-env around a continuation monad transformer
-(defn cont-local-env [m local-env-m capture-env-m]
-   (fn [f mv]
-     (fn [c]
-       (domonad m
-          [e capture-env-m
-           r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
-           r))))
+;(defn cont-local-env [m local-env-m capture-env-m]
+;   (fn [f mv]
+;     (fn [c]
+;       (domonad m
+;          [e capture-env-m
+;           r (local-env-m f (mv (fn [x] (local-env-m (fn [_] e) (c x)))))]
+;           r))))
 
 (defn cont-t
   "Monad transformer that adds continuations to an existing monad"
@@ -632,8 +634,7 @@
 		     (t-base (with-monad m m-capture-env)))
 	  m-local-env
                   (when-defined m m-local-env
-                     (when-defined m m-capture-env
-		        (with-monad m (cont-local-env m m-local-env m-capture-env))))
+                     (lift-local-env m-result m-bind m-base t-base t-map))
 	  m-fail  (when-defined m m-fail
 		    (fn [desc]
 		      (t-base (with-monad m (m-fail desc)))))
