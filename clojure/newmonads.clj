@@ -39,6 +39,9 @@
 	  ~'m-capture-env ::undefined
 	  ~'m-local-env ::undefined
 	  ~'m-call-cc ::undefined
+	  ~'m-write ::undefined
+	  ~'m-listen ::undefined
+	  ~'m-censor ::undefined
 	  ~'m-fail   ::undefined
 	  ~@operations]
       {:m-result ~'m-result
@@ -53,6 +56,9 @@
        :m-capture-env ~'m-capture-env
        :m-local-env ~'m-local-env
        :m-call-cc ~'m-call-cc
+       :m-write ~'m-write
+       :m-listen ~'m-listen
+       :m-censor ~'m-censor
        :m-fail ~'m-fail}))
 
 (defmacro when-defined [m op new-val]
@@ -128,6 +134,9 @@
 	  ~'m-capture-env (:m-capture-env ~name)
 	  ~'m-local-env (:m-local-env ~name)
 	  ~'m-call-cc (:m-call-cc ~name)
+	  ~'m-write  (:m-write ~name)
+	  ~'m-listen (:m-listen ~name)
+	  ~'m-censor (:m-censor ~name)
 	  ~'m-fail   (:m-fail ~name)]
       (do ~@exprs)))
 
@@ -178,6 +187,7 @@
 	      '~'m-capture-env '~'m-local-env
 	      '~'m-call-cc
 	      '~'m-zero '~'m-plus
+	      '~'m-write '~'m-listen '~'m-censor
 	      '~'m-fail
 	      ~@args))
       (defn ~fn-name [~'m-bind ~'m-result
@@ -186,6 +196,7 @@
 		      ~'m-capture-env ~'m-local-env
 		      ~'m-call-cc
 		      ~'m-zero ~'m-plus
+		      ~'m-write ~'m-listen ~'m-censor
 		      ~'m-fail
 		      ~@args] ~expr)))))
 
@@ -362,6 +373,16 @@
   (update-val key (fn [_] val)))
 
 ; Writer monad
+(defmonadfn write [v]
+  (let [[_ a] (m-result nil)]
+    [nil (clojure.contrib.accumulators/add a v)]))
+
+(defn listen [mv]
+  (let [[v a] mv] [[v a] a]))
+
+(defn censor [f mv]
+  (let [[v a] mv] [v (f a)]))
+
 (defn writer-m
   "Monad describing computations that accumulate data on the side, e.g. for
    logging. The monadic values have the structure [value log]. Any of the
@@ -375,17 +396,11 @@
 	          (let [[v1 a1] mv
 			[v2 a2] (f v1)]
 		    [v2 (clojure.contrib.accumulators/combine a1 a2)]))
+      ; need to wrap the operation because it is a macro
+      m-write   (fn [v] (write v))
+      m-listen  listen
+      m-censor  censor
      ]))
-
-(defmonadfn write [v]
-  (let [[_ a] (m-result nil)]
-    [nil (clojure.contrib.accumulators/add a v)]))
-
-(defn listen [mv]
-  (let [[v a] mv] [[v a] a]))
-
-(defn censor [f mv]
-  (let [[v a] mv] [v (f a)]))
 
 ; Continuation monad
 
