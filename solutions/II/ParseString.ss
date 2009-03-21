@@ -33,10 +33,10 @@
         ((and (eq? tag 'hex) (hex-digit? c))
          (let ((new-val (+ (* 16 val) (hex-digit-to-int c))))
 	   ; ... fill in ...
-
+	   (return `(hex ,new-val))
 	   ))
         (else ; ... fill in ...
-
+	 m-zero
 	 ))))
  
   (define (dec-digit? char) (char-numeric? char))
@@ -49,10 +49,10 @@
       (cond ((and (eq? tag 'dec) (dec-digit? c))
 	     (let ((new-val (+ (* 10 val) (dec-digit-to-int c))))
 	       ; ... fill in ...
-
+	       (return `(dec ,new-val))
 	     ))
             (else ; ... fill in ...
-
+	     m-zero
 	     ))))
   
   (define (parse-word-char parse c)
@@ -61,17 +61,17 @@
       (cond ((and (eq? tag 'word) (char-alphabetic? c))
              (let ((new-val (string-append word (string c))))
 	       ; ... fill in ...
-
+	       (return `(word ,new-val))
 	       ))
             (else ; ... fill in ...
-
+	     m-zero
 	     ))))
 
   ; extend the existing parse by a character
   ; it could be the character of a word, hex number or decimal number	    
   (define (parse-char parse c) 
     ; ... fill in body ...
-
+    (m-plus (parse-word-char parse c) (parse-hex-char parse c) (parse-dec-char parse c))
     )
   
   ; the possible results when we start parsing
