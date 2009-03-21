@@ -32,7 +32,7 @@
 ; Can you explain the results of each evaluation?
 
 (module List scheme
-  (require "Monad.ss")
+
   (provide bind return m-zero m-plus)
   
   ; ambiguous computation monad
