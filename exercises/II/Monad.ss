@@ -1,42 +1,29 @@
-; This module defines some syntax extensions and utilities for working with monads.
+; This file is a template for completing this exercise as a PLT scheme module
 (module Monad scheme
-  ; exported interface
   (require mzlib/defmacro)
 
+  ; exported interface
   (provide letM letM*)
+
+  ; Exercise: write macros for letM and letM* in your favorite Lisp
+  ; base on the templates below
+
+  ; letM should capture bind from the macro's use-environment 
+  ; (in other words, letM should not be hygenic in bind) because 
+  ; this file doesn't define bind
+  ; bind is defined by the individual files
+  ; where we implement particular monads, so we need
+  ; to pick up bind based on the monad we're using at the moment
+   
+  ; (letM ((name m-val)) expr) ==> 
+  ;       (bind m-val (lambda (name) expr))
+
+  (define-macro letM ...)
+
+  ; (letM* () expr) ==> expr
+  ; (letM* (binding binding ...) expr) ==> 
+  ;        (letM (binding) (letM* (binding ...) expr)
   
-  ; The letM macro is used to perform a single monadic binding.
-  ;
-  ;  (letM (name initializer) body) binds the monadic initializer expression to name
-  ;  so that the value is used to resolve any reference to name in the monadic body expression.
-  ;(define-syntax letM
-  ;  (syntax-rules ()
-  ;    [(letM (name initializer) body) (bind initializer (lambda (name) body))]))
+  (define-macro letM* ..)
 
-  ;(define-syntax letM*
-  ;  (syntax-rules ()
-  ;    ((letM* () body) body)
-  ;    ((letM* ((name1 mval1) (name2 mval2) ...)
-  ;            body)
-  ;     (letM (name1 mval1)
-  ;           (letM* ((name2 mval2) ...)
-  ;                  body)))))
-
-    (define-macro letM
-       (lambda (binding expr)
-         (apply
-          (lambda (name-val)
-            (apply (lambda (name initializer)
-                     `(bind ,initializer (lambda (,name) ,expr)))
-                   name-val))
-          binding)))
-
-     (define-macro letM*
-       (lambda (bindings expr)
-         (if (and (pair? bindings) (pair? (cdr bindings)))
-             `(letM ,(list (car bindings))
-                    (letM* ,(cdr bindings) ,expr))
-             `(letM ,bindings ,expr))))
-
-  ; end of module
   )
