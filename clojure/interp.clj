@@ -30,7 +30,7 @@
   (let [ part-list  (mapcat identity parts)
          check-part (fn [e part] ((first part) e))
          interp     (fn [rec e]
-		      (let [ match  (drop-while (complement (partial check-part e)) part-list)
+		      (let [ match  (seq (drop-while (complement (partial check-part e)) part-list))
 			     action (if (nil? match)
 				        default-action
 				        (second (first match)))
