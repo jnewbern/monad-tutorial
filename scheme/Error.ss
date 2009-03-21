@@ -1,3 +1,6 @@
+(module Error scheme
+  (require "Monad.ss")
+  (provide bind return fail inc-m div-m)
 ; error monad
 ; success is represented as '(ok val)
 ; failure is represented as '(fail failure-info)
@@ -29,3 +32,16 @@
 ;(fail "division by zero")
 ;> 
 
+;first letM* example
+;> (letM* ((x (inc-m 3))
+;        (y (div-m 8 2)))
+;         (div-m 5 (- x y)))
+;(fail "division by zero")
+
+;second letM* example
+;> (letM* ((x (inc-m 5))
+;        (y (div-m 8 2)))
+;       (let ((z (- x y)))
+;         (div-m 2 z)))
+;(ok 1)
+)
