@@ -1,7 +1,9 @@
 ;; Monads in Clojure
 
-;; by Konrad Hinsen
-;; last updated March 20, 2009
+;; Originally by Konrad Hinsen
+
+;; Extended by Ravi Nanavati
+;; last updated March 21, 2009
 
 ;; Copyright (c) Konrad Hinsen, 2009. All rights reserved.  The use
 ;; and distribution terms for this software are covered by the Eclipse
