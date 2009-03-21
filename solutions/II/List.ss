@@ -55,6 +55,26 @@
   ; take several ambiguous computations and join their possible results
   ; unlike Haskell's mplus, this one can take a variable number of arguments
   (define m-plus append)
+
+  (define (displayn val) (display val) (newline))
+
+  (define (run-tests)
+    (define (mul-m a b) (return (* a b)))
+    (define (double-m a) (mul-m a 2))
+    (define (div-m a b)
+      (if (= b 0) m-zero (return (/ a b))))
+    (define (reciprocal-m a) (div-m 1 a))
+
+    (displayn (return 5))
+    (displayn (m-plus (return 5) (return 7)))
+    (displayn (m-plus (return 5) m-zero))
+    (displayn (bind (return 5) double-m))
+    (displayn (bind m-zero double-m))
+    (displayn (bind (m-plus (return 0) (return 3) (return 7)) double-m))
+    (displayn (bind (m-plus (return 0) (return 3) (return 7)) reciprocal-m))
+
+    )
   
+    (run-tests)
   )
 
