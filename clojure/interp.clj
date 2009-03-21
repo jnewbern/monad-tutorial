@@ -317,15 +317,17 @@
 
 (def arith-interp (make-interp error-m [arith-lang] fail-bad-token))
 
-(do-test arith-interp "plus"
-	 '(+ 3 1)
-	 '(ok 4))
-(do-test arith-interp "div-0"
-	 '(/ (+ 4 1) (- 12 (* 3 4)))
-	 '(fail "division by 0"))
-(do-test arith-interp "bad-foo"
-	 '(/ (+ 4 1) (- 12 (foo 3 4)))
-	 '(fail "bad-token at (foo 3 4)"))
+(defn do-arith-tests []
+  (do-test arith-interp "plus"
+	   '(+ 3 1)
+	   '(ok 4))
+  (do-test arith-interp "div-0"
+	   '(/ (+ 4 1) (- 12 (* 3 4)))
+	   '(fail "division by 0"))
+  (do-test arith-interp "bad-foo"
+	   '(/ (+ 4 1) (- 12 (foo 3 4)))
+	   '(fail "bad-token at (foo 3 4)"))
+  )
 
 ; Create an interpreter using the arithmetic language fragment and
 ; an environment of symbols and run a few tests.
@@ -339,16 +341,17 @@
 	  ]
        (fn [e] (run-with-env symbol-environment (interp e)))))
 
-(do-test (arith-env-interp {'pi 3.14159}) "2-pi"
-	 '(* 2 pi)
-	 '(ok 6.28318))
-(do-test (arith-env-interp {'x 42, 'y 6}) "div-vars"
-	 '(/ x y)
-	 '(ok 7))
-(do-test (arith-env-interp {'x 7, 'y 21}) "div-0-expr"
-	 '(/ 110 (- y (* 3 x)))
-	 '(fail "division by 0"))
-
+(defn do-arith-env-tests []
+  (do-test (arith-env-interp {'pi 3.14159}) "2-pi"
+	   '(* 2 pi)
+	   '(ok 6.28318))
+  (do-test (arith-env-interp {'x 42, 'y 6}) "div-vars"
+	   '(/ x y)
+	   '(ok 7))
+  (do-test (arith-env-interp {'x 7, 'y 21}) "div-0-expr"
+	   '(/ 110 (- y (* 3 x)))
+	   '(fail "division by 0"))
+  )
 
 ; Create an interpreter using the arithmetic language fragment,
 ; "do" sequences & reference cells and run a few tests.
@@ -365,28 +368,29 @@
 	 (let [initial-state (struct interp-state (vector 0))] ; one pre-defined reference
 	   ((eval-state-t error-m) (interp e) initial-state)))))
 
-(do-test arith-ref-do-interp "make-ref"
-	 '(new-ref 7)
-	 '(ok 1))
-(do-test arith-ref-do-interp "read-ref"
-	 '(read (new-ref (+ 3 4)))
-	 '(ok 7))
-(do-test arith-ref-do-interp "bad-foo"
-	 '(+ 4 (foo 7))
-	 '(fail "bad-token at (foo 7)"))
-(do-test arith-ref-do-interp "bad-ref"
-	 '(read 1)
-	 '(fail "invalid reference"))
-(do-test arith-ref-do-interp "bad-do"
-	 '(do)
-	 '(fail "nothing to do"))
-(do-test arith-ref-do-interp "do-one"
-	 '(do (* 7 2))
-	 '(ok 14))
-(do-test arith-ref-do-interp "do-two"
-	 '(do (* 7 2) (* 7 3))
-	 '(ok 21))
-
+(defn do-arith-ref-tests []
+  (do-test arith-ref-do-interp "make-ref"
+	   '(new-ref 7)
+	   '(ok 1))
+  (do-test arith-ref-do-interp "read-ref"
+	   '(read (new-ref (+ 3 4)))
+	   '(ok 7))
+  (do-test arith-ref-do-interp "bad-foo"
+	   '(+ 4 (foo 7))
+	   '(fail "bad-token at (foo 7)"))
+  (do-test arith-ref-do-interp "bad-ref"
+	   '(read 1)
+	   '(fail "invalid reference"))
+  (do-test arith-ref-do-interp "bad-do"
+	   '(do)
+	   '(fail "nothing to do"))
+  (do-test arith-ref-do-interp "do-one"
+	   '(do (* 7 2))
+	   '(ok 14))
+  (do-test arith-ref-do-interp "do-two"
+	   '(do (* 7 2) (* 7 3))
+	   '(ok 21))
+  )
 
 ; Create an interpreter with arithmetic, env+functions, do & reference
 ; cells and run a few tests.
@@ -411,101 +415,106 @@
 	       ev            (eval-state-fn (interp e) initial-state)]
 	   (run-with-env initial-environment ev)))))
 
-(do-test (arith-ref-do-fn-interp {}) "mult"
-	 '(* 3 3)
-	 '(ok 9))
+(defn do-arith-ref-do-tests []
 
-(do-test (arith-ref-do-fn-interp {'y 4}) "square"
-	 '((lambda-v x (* x x)) 3)
-	 '(ok 9))
+  (do-test (arith-ref-do-fn-interp {}) "mult"
+	   '(* 3 3)
+	   '(ok 9))
+  
+  (do-test (arith-ref-do-fn-interp {'y 4}) "square"
+	   '((lambda-v x (* x x)) 3)
+	   '(ok 9))
+  
+  (do-test (arith-ref-do-fn-interp {}) "bad-fn"
+	   '((+ 3 6) 7)
+	   '(fail "not a function: 9"))
+  
+  (do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbv"
+	   '(+ x ((lambda-v x (* x x)) (- y x)))
+	   '(ok 203))
+  
+  (do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbn"
+	   '(+ x ((lambda-n x (* x x)) (- y x)))
+	   '(ok 203))
+  
+  (do-test (arith-ref-do-fn-interp {}) "cbv-failure"
+	   '((lambda-v x 5) (/ 5 0))
+	   '(fail "division by 0"))
+  
+  (do-test (arith-ref-do-fn-interp {}) "cbn-success"
+	   '((lambda-n x 5) (/ 5 0))
+	   '(ok 5))
 
-(do-test (arith-ref-do-fn-interp {}) "bad-fn"
-	 '((+ 3 6) 7)
-	 '(fail "not a function: 9"))
+  (do-test (arith-ref-do-fn-interp {}) "make-ref-2"
+	   '(new-ref 7)
+	   '(ok 1))
 
-(do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbv"
-	 '(+ x ((lambda-v x (* x x)) (- y x)))
-	 '(ok 203))
+  (do-test (arith-ref-do-fn-interp {}) "read-ref-2"
+	   '(read (new-ref (+ 3 4)))
+	   '(ok 7))
 
-(do-test (arith-ref-do-fn-interp {'x 7, 'y 21}) "cbn"
-	 '(+ x ((lambda-n x (* x x)) (- y x)))
-	 '(ok 203))
+  (do-test (arith-ref-do-fn-interp {}) "bad-foo-2"
+	   '(+ 4 (foo 7))
+	   '(fail "undefined variable foo"))
+  
+  (do-test (arith-ref-do-fn-interp {}) "bad-ref-2"
+	   '(read 1)
+	   '(fail "invalid reference"))
+  
+  (do-test (arith-ref-do-fn-interp {}) "bad-do-2"
+	   '(do)
+	   '(fail "nothing to do"))
 
-(do-test (arith-ref-do-fn-interp {}) "cbv-failure"
-	 '((lambda-v x 5) (/ 5 0))
-	 '(fail "division by 0"))
+  (do-test (arith-ref-do-fn-interp {}) "do-one-2"
+	   '(do (* 7 2))
+	   '(ok 14))
 
-(do-test (arith-ref-do-fn-interp {}) "cbn-success"
-	 '((lambda-n x 5) (/ 5 0))
-	 '(ok 5))
+  (do-test (arith-ref-do-fn-interp {}) "do-two-2"
+	   '(do (* 7 2) (* 7 3))
+	   '(ok 21))
 
-(do-test (arith-ref-do-fn-interp {}) "make-ref-2"
-	 '(new-ref 7)
-	 '(ok 1))
+  (do-test (arith-ref-do-fn-interp {}) "cbv-refs"
+	   '((lambda-v r (+ 1 (read r))) (new-ref 7))
+	   '(ok 8))
 
-(do-test (arith-ref-do-fn-interp {}) "read-ref-2"
-	 '(read (new-ref (+ 3 4)))
-	 '(ok 7))
-
-(do-test (arith-ref-do-fn-interp {}) "bad-foo-2"
-	 '(+ 4 (foo 7))
-	 '(fail "undefined variable foo"))
-
-(do-test (arith-ref-do-fn-interp {}) "bad-ref-2"
-	 '(read 1)
-	 '(fail "invalid reference"))
-
-(do-test (arith-ref-do-fn-interp {}) "bad-do-2"
-	 '(do)
-	 '(fail "nothing to do"))
-
-(do-test (arith-ref-do-fn-interp {}) "do-one-2"
-	 '(do (* 7 2))
-	 '(ok 14))
-
-(do-test (arith-ref-do-fn-interp {}) "do-two-2"
-	 '(do (* 7 2) (* 7 3))
-	 '(ok 21))
-
-(do-test (arith-ref-do-fn-interp {}) "cbv-refs"
-	 '((lambda-v r (+ 1 (read r))) (new-ref 7))
-	 '(ok 8))
-
-(do-test (arith-ref-do-fn-interp {}) "incr-3"
-	 '((lambda-v x-ref
-		     ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
+  (do-test (arith-ref-do-fn-interp {}) "incr-3"
+	   '((lambda-v x-ref
+		       ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
 						  (read x-ref))))
-	   (new-ref 3))
-	 '(ok 6))
+	     (new-ref 3))
+	   '(ok 6))
 
-(do-test (arith-ref-do-fn-interp {}) "incr-and-sum"
-	 '(((lambda-v x-ref
-		      (lambda-v y-ref
-				((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
-				 (do (write x-ref (+ 1 (read x-ref)))
-				     (write y-ref (+ 1 (read y-ref)))
-				     (+ (read x-ref) (read y-ref))))))
-	    (new-ref 3))
-	   (new-ref 5))
-	 '(ok 260))
+  (do-test (arith-ref-do-fn-interp {}) "incr-and-sum"
+	   '(((lambda-v x-ref
+			(lambda-v y-ref
+				  ((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
+				   (do (write x-ref (+ 1 (read x-ref)))
+				       (write y-ref (+ 1 (read y-ref)))
+				       (+ (read x-ref) (read y-ref))))))
+	      (new-ref 3))
+	     (new-ref 5))
+	   '(ok 260))
+  )
 
 ; use the pre-defined reference as time counter
 (def interp-with-time-ref
      (arith-ref-do-fn-interp {'time  0, ; using the pre-defined reference
 			      'tick '(write time (+ 1 (read time))) }))
 
-(do-test interp-with-time-ref "start-time"
-	 '(read time)
-	 '(ok 0))
+(defn do-interp-with-time-tests []
 
-(do-test interp-with-time-ref "incr-time"
-	 '(do tick (read time))
-	 '(ok 1))
+  (do-test interp-with-time-ref "start-time"
+	   '(read time)
+	   '(ok 0))
 
-(do-test interp-with-time-ref "add-time"
-	 '(+ (do tick 1) (read time))
-	 '(ok 2))
+  (do-test interp-with-time-ref "incr-time"
+	   '(do tick (read time))
+	   '(ok 1))
 
+  (do-test interp-with-time-ref "add-time"
+	   '(+ (do tick 1) (read time))
+	   '(ok 2))
+  )
 
 ; Create an interpreter with arithmetic, env+functions, do,
 ; continuations & reference cells and run a few tests.
@@ -552,143 +561,161 @@
 	      ]
 	   v3))))
 
-(do-test (arith-ref-do-fn-cont-interp {}) "mult-2"
-	 '(* 3 3)
-	 '(ok 9))
+(defn do-ref-do-fn-cont-tests []
 
-(do-test (arith-ref-do-fn-cont-interp {'pi 3.14159}) "env"
-	 '(* 2 pi)
-	 '(ok 6.28318))
+  (do-test (arith-ref-do-fn-cont-interp {}) "mult-2"
+	   '(* 3 3)
+	   '(ok 9))
+  
+  (do-test (arith-ref-do-fn-cont-interp {'pi 3.14159}) "env"
+	   '(* 2 pi)
+	   '(ok 6.28318))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "square-2"
+	   '((lambda-v x (* x x)) 3)
+	   '(ok 9))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "bad-fn-2"
+	   '((+ 3 6) 7)
+	   '(fail "not a function: 9"))
+  
+  (do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbv-2"
+	   '(+ x ((lambda-v x (* x x)) (- y x)))
+	   '(ok 203))
+  
+  (do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbn-2"
+	   '(+ x ((lambda-n x (* x x)) (- y x)))
+	   '(ok 203))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "cbv-failure-2"
+	   '((lambda-v x 5) (/ 5 0))
+	   '(fail "division by 0"))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "cbn-success-2"
+	   '((lambda-n x 5) (/ 5 0))
+	   '(ok 5))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "make-ref-3"
+	   '(new-ref 7)
+	   '(ok 1))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "read-ref-3"
+	   '(read (new-ref (+ 3 4)))
+	   '(ok 7))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "bad-foo-3"
+	   '(+ 4 (foo 7))
+	   '(fail "undefined variable foo"))
 
-(do-test (arith-ref-do-fn-cont-interp {}) "square-2"
-	 '((lambda-v x (* x x)) 3)
-	 '(ok 9))
+  (do-test (arith-ref-do-fn-cont-interp {}) "bad-ref-3"
+	   '(read 1)
+	   '(fail "invalid reference"))
 
-(do-test (arith-ref-do-fn-cont-interp {}) "bad-fn-2"
-	 '((+ 3 6) 7)
-	 '(fail "not a function: 9"))
+  (do-test (arith-ref-do-fn-cont-interp {}) "bad-do-3"
+	   '(do)
+	   '(fail "nothing to do"))
 
-(do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbv-2"
-	 '(+ x ((lambda-v x (* x x)) (- y x)))
-	 '(ok 203))
+  (do-test (arith-ref-do-fn-cont-interp {}) "do-one-3"
+	   '(do (* 7 2))
+	   '(ok 14))
 
-(do-test (arith-ref-do-fn-cont-interp {'x 7, 'y 21}) "cbn-2"
-	 '(+ x ((lambda-n x (* x x)) (- y x)))
-	 '(ok 203))
+  (do-test (arith-ref-do-fn-cont-interp {}) "do-two-3"
+	   '(do (* 7 2) (* 7 3))
+	   '(ok 21))
 
-(do-test (arith-ref-do-fn-cont-interp {}) "cbv-failure-2"
-	 '((lambda-v x 5) (/ 5 0))
-	 '(fail "division by 0"))
+  (do-test (arith-ref-do-fn-cont-interp {}) "cbv-refs-2"
+	   '((lambda-v r (+ 1 (read r))) (new-ref 7))
+	   '(ok 8))
 
-(do-test (arith-ref-do-fn-cont-interp {}) "cbn-success-2"
-	 '((lambda-n x 5) (/ 5 0))
-	 '(ok 5))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "make-ref-3"
-	 '(new-ref 7)
-	 '(ok 1))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "read-ref-3"
-	 '(read (new-ref (+ 3 4)))
-	 '(ok 7))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "bad-foo-3"
-	 '(+ 4 (foo 7))
-	 '(fail "undefined variable foo"))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "bad-ref-3"
-	 '(read 1)
-	 '(fail "invalid reference"))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "bad-do-3"
-	 '(do)
-	 '(fail "nothing to do"))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "do-one-3"
-	 '(do (* 7 2))
-	 '(ok 14))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "do-two-3"
-	 '(do (* 7 2) (* 7 3))
-	 '(ok 21))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "cbv-refs-2"
-	 '((lambda-v r (+ 1 (read r))) (new-ref 7))
-	 '(ok 8))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "incr-by-3"
-	 '((lambda-v x-ref
-		     ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
-						  (read x-ref))))
-	   (new-ref 3))
-	 '(ok 6))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "incr-and-sum-2"
-	 '(((lambda-v x-ref
-		      (lambda-v y-ref
-				((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
-				 (do (write x-ref (+ 1 (read x-ref)))
-				     (write y-ref (+ 1 (read y-ref)))
-				     (+ (read x-ref) (read y-ref))))))
-	    (new-ref 3))
-	   (new-ref 5))
-	 '(ok 260))
-
+  (do-test (arith-ref-do-fn-cont-interp {}) "incr-by-3"
+	   '((lambda-v x-ref
+		       ((lambda-n f (do f f f)) (do (write x-ref (+ 1 (read x-ref)))
+						    (read x-ref))))
+	     (new-ref 3))
+	   '(ok 6))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "incr-and-sum-2"
+	   '(((lambda-v x-ref
+			(lambda-v y-ref
+				  ((lambda-n inc-and-sum (* inc-and-sum (+ inc-and-sum inc-and-sum)))
+				   (do (write x-ref (+ 1 (read x-ref)))
+				       (write y-ref (+ 1 (read y-ref)))
+				       (+ (read x-ref) (read y-ref))))))
+	      (new-ref 3))
+	     (new-ref 5))
+	   '(ok 260))
+  )
+  
 ; use the pre-defined reference as time counter
 (def interp-with-time-ref-ecsce
      (arith-ref-do-fn-cont-interp {'time  0, ; using the pre-defined reference
 			           'tick '(write time (+ 1 (read time))) }))
 
-(do-test interp-with-time-ref-ecsce "start-time-2"
-	 '(read time)
-	 '(ok 0))
+(defn do-interp-with-time-ref-tests []
 
-(do-test interp-with-time-ref-ecsce "incr-time-2"
-	 '(do tick (read time))
-	 '(ok 1))
+  (do-test interp-with-time-ref-ecsce "start-time-2"
+	   '(read time)
+	   '(ok 0))
+  
+  (do-test interp-with-time-ref-ecsce "incr-time-2"
+	   '(do tick (read time))
+	   '(ok 1))
+  
+  (do-test interp-with-time-ref-ecsce "add-time-2"
+	   '(+ (do tick 1) (read time))
+	   '(ok 2))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "call-cc"
+	   '(call-cc exit (+ 5 (exit 3)))
+	   '(ok 3))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "call-cc-2"
+	   '(+ (call-cc exit (+ 7 (exit 9)))
+	       (+ 2 (call-cc exit (- 2 (exit 3)))))
+	   '(ok 14))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "call-cc-div"
+	   '(* (call-cc exit (/ (exit 5) 0)) 5)
+	   '(ok 25))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "call-cc-fn"
+	   '((call-cc exit-fn (lambda-v n (* n 2))) 5)
+	   '(ok 10))
+  
+  (do-test (arith-ref-do-fn-cont-interp {}) "call-cc-escape"
+	   '((call-cc exit-fn
+		      (lambda-v n
+				(+ n
+				   (exit-fn (lambda-v r (* n (+ r 1))))))) 5)
+	   '(ok 30))
+  
+  (do-test interp-with-time-ref-ecsce "alt-call-cc-resets-state"
+	   '(do tick
+		(+ (alt-call-cc exit
+				(do tick
+				    tick
+				    ((lambda-v t0 (exit t0)) (read time))))
+		   (read time)))
+	   '(ok 4))
+  
+  (do-test interp-with-time-ref-ecsce "call-cc-preserves-state"
+	   '(do tick
+		(+ (call-cc exit
+			    (do tick
+				tick
+				((lambda-v t0 (exit t0)) (read time))))
+		   (read time)))
+	   '(ok 6))
+  )
 
-(do-test interp-with-time-ref-ecsce "add-time-2"
-	 '(+ (do tick 1) (read time))
-	 '(ok 2))
+(defn do-tests []
+  (do-arith-tests)
+  (do-arith-env-tests)
+  (do-arith-ref-tests)
+  (do-arith-ref-do-tests)
+  (do-interp-with-time-tests)
+  (do-ref-do-fn-cont-tests)
+  (do-interp-with-time-ref-tests)
+  )
 
-(do-test (arith-ref-do-fn-cont-interp {}) "call-cc"
-	 '(call-cc exit (+ 5 (exit 3)))
-	 '(ok 3))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-2"
-	 '(+ (call-cc exit (+ 7 (exit 9)))
-	     (+ 2 (call-cc exit (- 2 (exit 3)))))
-	 '(ok 14))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-div"
-	 '(* (call-cc exit (/ (exit 5) 0)) 5)
-	 '(ok 25))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-fn"
-	 '((call-cc exit-fn (lambda-v n (* n 2))) 5)
-	 '(ok 10))
-
-(do-test (arith-ref-do-fn-cont-interp {}) "call-cc-escape"
-	 '((call-cc exit-fn
-		    (lambda-v n
-			      (+ n
-				 (exit-fn (lambda-v r (* n (+ r 1))))))) 5)
-	 '(ok 30))
-
-(do-test interp-with-time-ref-ecsce "alt-call-cc-resets-state"
-	 '(do tick
-	      (+ (alt-call-cc exit
-			      (do tick
-				  tick
-				  ((lambda-v t0 (exit t0)) (read time))))
-		 (read time)))
-	 '(ok 4))
-
-(do-test interp-with-time-ref-ecsce "call-cc-preserves-state"
-	 '(do tick
-	      (+ (call-cc exit
-			  (do tick
-			      tick
-			      ((lambda-v t0 (exit t0)) (read time))))
-		 (read time)))
-	 '(ok 6))
+  
