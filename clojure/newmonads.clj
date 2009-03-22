@@ -655,6 +655,37 @@
 		      (t-base (with-monad m (m-fail desc)))))
 	  ]))
 
+; writer monad transformer
+(defn writer-t [m empty-accumulator]
+  (monad
+   [m-result (fn m-result-writer-t [v]
+	       (with-monad m
+		(m-result [v empty-accumulator])))
+    m-bind   (fn m-bind-writer-t [mv f]
+	       (domonad m
+		 [[v1 a1] mv
+		  [v2 a2] (f v1)]
+		 [v2 (clojure.contrib.accumulators/combine a1 a2)]))
+    m-base   m
+    t-base   (fn [mv]
+	       (with-monad m
+		(m-bind mv
+		 (fn [v]
+		   [v empty-accumulator]))))
+    t-map    (fn [mop] mop)
+    m-write  (fn [a]
+	       (with-monad m
+		(m-result [nil a])))
+    m-listen (fn [mv]
+	       (m-bind mv
+		(fn [v a]
+		  (m-result [[v a] a]))))
+    m-censor (fn [f mv]
+	       (m-bind mv
+		 (fn [v a]
+		   (m-result [v (f a)]))))
+    ]))
+
 ; continuation monad transformer
 (defn lift-cont-t [m]
    (fn [mv] (with-monad m (partial m-bind mv))))
