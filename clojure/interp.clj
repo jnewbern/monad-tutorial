@@ -714,7 +714,10 @@
 (defn write-number [m v]
   (with-monad m
     (if (number? v)
-      (do (m-write v) (m-write " "))
+      (domonad
+       [_ (m-write (str v))
+	_ (m-write " ")]
+       nil)
       (m-fail (str "attempt to write non-number: " v)))))
 
 ; our log is just a string
@@ -722,12 +725,14 @@
 
 (def log-lang
   [ ; log a number
-   [ (fn [e] (and (seq? e) (= first e) 'write-num))
+   [ (fn [e]
+       (prn "log lang: " e)
+       (and (seq? e) (= (first e) 'write-nums)))
      (fn [m rec e]
        (domonad m
 	 [args (m-result (rest e))
 	  vals (m-map rec args)
-          _    (m-seq (map (write-number m) vals))]
+          _    (m-seq (map (partial write-number m) vals))]
 	 nil)) ]
    ,
    ; collect and print the numbers logged while evaluating
@@ -754,6 +759,20 @@
    ]
   )
 
+(def arith-log-interp
+  (let [ monad     (writer-t empty-log error-m)
+	 parts     [ arith-lang, log-lang, do-lang ]
+	 otherwise fail-bad-token
+	 interp    (make-interp monad parts otherwise)
+       ]
+    ; we don't eval-writer-t because we want to see the final log
+    (fn [e] (interp e))))
+
+(defn do-arith-log-tests []
+  (let [test (partial do-test arith-log-interp)]
+    (test "log-one" '(write-nums 5) '(ok [nil "5 "])))
+  )
+
 (defn do-tests []
   (do-arith-tests)
   (do-arith-env-tests)
@@ -762,6 +781,7 @@
   (do-interp-with-time-tests)
   (do-ref-do-fn-cont-tests)
   (do-interp-with-time-ref-tests)
+  (do-arith-log-tests)
   )
 
   
