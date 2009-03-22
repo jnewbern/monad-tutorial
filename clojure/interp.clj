@@ -1,4 +1,5 @@
 (ns monad-tutorial
+  (:require [clojure.contrib.accumulators])
   (:use newmonads))
 
 (defn trace [s x] (do (prn s x) x))
@@ -706,6 +707,51 @@
 				((lambda-v t0 (exit t0)) (read time))))
 		   (read time)))
 	   '(ok 6))
+  )
+
+; a language fragment that accumulates a log of numbers in a string
+; we also provide the ability to print them
+(defn write-number [m v]
+  (with-monad m
+    (if (number? v)
+      (do (m-write v) (m-write " "))
+      (m-fail (str "attempt to write non-number: " v)))))
+
+; our log is just a string
+(def empty-log clojure.contrib.accumulators/empty-string)
+
+(def log-lang
+  [ ; log a number
+   [ (fn [e] (and (seq? e) (= first e) 'write-num))
+     (fn [m rec e]
+       (domonad m
+	 [args (m-result (rest e))
+	  vals (m-map rec args)
+          _    (m-seq (map (write-number m) vals))]
+	 nil)) ]
+   ,
+   ; collect and print the numbers logged while evaluating
+   ; the list of argument expressions
+   ; return the last expression as the result
+   [ (fn [e] (and (seq? e) (= first e) 'collect-nums))
+     (fn [m rec e]
+       (domonad m
+         [args (m-result (rest e))
+	  [vals log] (m-listen (m-map rec args))
+	  _ (m-result (prn (str "number log: " log)))
+	  ]
+	 (last vals))) ]
+   ,
+   ; censor any values logged while evaluating its argument
+   [ (fn [e] (and (seq? e) (= first e) 'censor-nums))
+     (fn [m rec e]
+       (domonad m
+	[arg (m-result (second e))
+	 r   (m-censor
+	      (constantly empty-log)
+	      (rec arg))]
+	r)) ]
+   ]
   )
 
 (defn do-tests []
