@@ -656,7 +656,7 @@
 	  ]))
 
 ; writer monad transformer
-(defn writer-t [m empty-accumulator]
+(defn writer-t [empty-accumulator m]
   (monad
    [m-result (fn m-result-writer-t [v]
 	       (with-monad m
@@ -701,6 +701,9 @@
 		(lift-call-cc
 		 (with-monad m m-call-cc)
 		 m-result m-bind m-base t-base t-map))
+    m-fail   (when-defined m m-fail
+	       (fn [desc]
+		 (t-base (with-monad m (m-fail desc)))))
     ]))
 
 (defn eval-writer-t [m]
