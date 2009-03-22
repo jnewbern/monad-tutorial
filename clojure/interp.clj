@@ -742,7 +742,7 @@
        (domonad m
          [args (m-result (rest e))
 	  [vals log] (m-listen (m-map rec args))
-	  _ (m-result (prn (str "number log: " log)))
+	  _ (m-result (println (str "number log: " log)))
 	  ]
 	 (last vals))) ]
    ,
@@ -769,6 +769,23 @@
     (test "log-two" '(do (write-nums 16) (write-nums (+ 5 7)))
 	  '(ok [nil "16 12 "]))
     (test "censor-one" '(censor-nums (write-nums 19)) '(ok [nil ""]))
+    (test "censor-two"
+	  '(do (censor-nums (write-nums (+ 7 9)))
+	       (write-nums (* 8 12)))
+	  '(ok [nil "96 "]))
+    (println "\nlisten-one should print: " "number log: 17 23 ")
+    (test "listen-one"
+	  '(censor-nums
+	    (collect-nums
+	     (write-nums 17 23)))
+	  '(ok [nil ""]))
+    (println "\nlisten-two should print the number log and return it")
+    (test "listen-two"
+	  '(collect-nums
+	    (write-nums (+ 17 (do (write-nums 12) 23)))
+	    (censor-nums (do (write-nums 99) 41)))
+	  '(ok [41 "12 40 "]))
+
   ))
 
 (defn do-tests []
