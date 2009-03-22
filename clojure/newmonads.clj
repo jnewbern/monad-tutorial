@@ -673,17 +673,19 @@
 		 (fn [v]
 		   [v empty-accumulator]))))
     t-map    (fn [mop] mop)
-    m-write  (fn [a]
+    m-write  (fn m-write-writer-t [a]
 	       (with-monad m
 		(m-result [nil a])))
-    m-listen (fn [mv]
-	       (m-bind mv
-		(fn [v a]
-		  (m-result [[v a] a]))))
-    m-censor (fn [f mv]
-	       (m-bind mv
-		 (fn [v a]
-		   (m-result [v (f a)]))))
+    m-listen (fn m-listen-writer-t [mv]
+	       (with-monad m
+	         (m-bind mv
+		   (fn [[v a]]
+		     (m-result [[v a] a])))))
+    m-censor (fn m-censor-writer-t [f mv]
+	       (with-monad m
+	        (m-bind mv
+		  (fn [[v a]]
+		    (m-result [v (f a)])))))
     m-get    (when-defined m m-get
                (t-base (with-monad m m-get)))
     m-put    (when-defined m m-put
