@@ -737,7 +737,7 @@
    ; collect and print the numbers logged while evaluating
    ; the list of argument expressions
    ; return the last expression as the result
-   [ (fn [e] (and (seq? e) (= first e) 'collect-nums))
+   [ (fn [e] (and (seq? e) (= (first e) 'collect-nums)))
      (fn [m rec e]
        (domonad m
          [args (m-result (rest e))
@@ -747,16 +747,12 @@
 	 (last vals))) ]
    ,
    ; censor any values logged while evaluating its argument
-   [ (fn [e] (and (seq? e) (= first e) 'censor-nums))
+   [ (fn [e] (and (seq? e) (= (first e) 'censor-nums)))
      (fn [m rec e]
-       (domonad m
-	[arg (m-result (second e))
-	 r   (m-censor
-	      (constantly empty-log)
-	      (rec arg))]
-	r)) ]
+       (with-monad m
+	 (m-censor (constantly empty-log) (rec (second e)))))
    ]
-  )
+  ])
 
 (def arith-log-interp
   (let [ monad     (writer-t empty-log error-m)
@@ -772,6 +768,7 @@
     (test "log-one" '(write-nums 5) '(ok [nil "5 "]))
     (test "log-two" '(do (write-nums 16) (write-nums (+ 5 7)))
 	  '(ok [nil "16 12 "]))
+    (test "censor-one" '(censor-nums (write-nums 19)) '(ok [nil ""]))
   ))
 
 (defn do-tests []
