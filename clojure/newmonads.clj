@@ -703,6 +703,9 @@
 		 m-result m-bind m-base t-base t-map))
     ]))
 
+(defn eval-writer-t [m]
+   (fn [mv] (domonad m [[v a] mv] v)))
+
 ; continuation monad transformer
 (defn lift-cont-t [m]
    (fn [mv] (with-monad m (partial m-bind mv))))
