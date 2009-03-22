@@ -684,6 +684,23 @@
 	       (m-bind mv
 		 (fn [v a]
 		   (m-result [v (f a)]))))
+    m-get    (when-defined m m-get
+               (t-base (with-monad m m-get)))
+    m-put    (when-defined m m-put
+	       (fn [ss]
+		 (t-base (with-monad m (m-put ss)))))
+    m-capture-env
+              (when-defined m m-capture-env
+	        (t-base (with-monad m m-capture-env)))
+    m-local-env
+              (when-defined m m-local-env
+	        (lift-local-env
+		 (with-monad m m-local-env)
+		 m-result m-bind m-base t-base t-map))
+    m-call-cc (when-defined m m-call-cc
+		(lift-call-cc
+		 (with-monad m m-call-cc)
+		 m-result m-bind m-base t-base t-map))
     ]))
 
 ; continuation monad transformer
