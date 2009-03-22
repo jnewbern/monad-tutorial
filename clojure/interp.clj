@@ -726,7 +726,6 @@
 (def log-lang
   [ ; log a number
    [ (fn [e]
-       (prn "log lang: " e)
        (and (seq? e) (= (first e) 'write-nums)))
      (fn [m rec e]
        (domonad m
@@ -770,8 +769,10 @@
 
 (defn do-arith-log-tests []
   (let [test (partial do-test arith-log-interp)]
-    (test "log-one" '(write-nums 5) '(ok [nil "5 "])))
-  )
+    (test "log-one" '(write-nums 5) '(ok [nil "5 "]))
+    (test "log-two" '(do (write-nums 16) (write-nums (+ 5 7)))
+	  '(ok [nil "16 12 "]))
+  ))
 
 (defn do-tests []
   (do-arith-tests)
